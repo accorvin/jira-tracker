@@ -14,6 +14,7 @@ dist-ssr
 
 # Generated/fetched data - contains Jira API data
 public/issues.json
+public/releases.json
 # Keep the logo
 !public/redhat-logo.svg
 

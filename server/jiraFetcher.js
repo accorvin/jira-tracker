@@ -23,7 +23,6 @@ const COMPONENTS = [
   'AI Pipelines'
 ]
 const ISSUE_TYPES = ['Feature', 'Initiative']
-const TARGET_VERSION = 'rhoai-3.2'
 
 /**
  * Custom field mappings (Jira internal ID -> human readable name)
@@ -55,13 +54,14 @@ async function readJiraToken() {
 
 /**
  * Build JQL query string matching Python script logic
+ * @param {string} targetRelease - Target release version (e.g., 'rhoai-3.2')
  * @returns {string} JQL query
  */
-function buildJqlQuery() {
+function buildJqlQuery(targetRelease) {
   const projectFilter = `project IN (${PROJECTS.join(', ')})`
   const componentFilter = `component IN (${COMPONENTS.map(c => `'${c}'`).join(', ')})`
   const issueTypeFilter = `issuetype IN (${ISSUE_TYPES.join(', ')})`
-  const targetVersionFilter = `"Target Version" = ${TARGET_VERSION}`
+  const targetVersionFilter = `"Target Version" = ${targetRelease}`
 
   return `${projectFilter} AND ${componentFilter} AND ${issueTypeFilter} AND ${targetVersionFilter}`
 }
@@ -69,10 +69,11 @@ function buildJqlQuery() {
 /**
  * Fetch issues from Jira REST API with pagination
  * @param {string} token - Jira API token
+ * @param {string} targetRelease - Target release version (e.g., 'rhoai-3.2')
  * @returns {Promise<Array>} Array of raw issue objects
  */
-async function fetchIssuesFromJira(token) {
-  const jql = buildJqlQuery()
+async function fetchIssuesFromJira(token, targetRelease) {
+  const jql = buildJqlQuery(targetRelease)
   const fields = [
     'key',
     'summary',
@@ -251,16 +252,21 @@ function transformIssue(issue) {
 
 /**
  * Main function: Fetch issues from Jira and write to public/issues.json
+ * @param {string} targetRelease - Target release version (e.g., 'rhoai-3.2')
  * @returns {Promise<{success: boolean, count: number, error?: string}>}
  */
-export async function fetchAndWriteIssues() {
+export async function fetchAndWriteIssues(targetRelease) {
   try {
+    if (!targetRelease) {
+      throw new Error('targetRelease parameter is required')
+    }
+
     // Read token
     const token = await readJiraToken()
 
     // Fetch issues
-    console.log('Fetching issues from Jira...')
-    const rawIssues = await fetchIssuesFromJira(token)
+    console.log(`Fetching issues from Jira for ${targetRelease}...`)
+    const rawIssues = await fetchIssuesFromJira(token, targetRelease)
 
     // Transform issues
     const transformedIssues = rawIssues.map(transformIssue)

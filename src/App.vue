@@ -12,7 +12,7 @@
           </div>
           <button
             @click="refreshData"
-            :disabled="isRefreshing"
+            :disabled="isRefreshing || !selectedRelease"
             class="px-4 py-2 bg-white text-primary-700 rounded-md font-medium hover:bg-primary-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
           >
             <svg
@@ -41,27 +41,62 @@
       </div>
     </header>
 
-    <main class="container mx-auto px-6 py-8">
-      <FilterBar
-        v-if="allIssues.length > 0"
-        :issues="allIssues"
-        @filter-change="handleFilterChange"
+    <ReleaseTabBar
+      v-if="isInitialized"
+      :releases="releases"
+      :selectedRelease="selectedRelease"
+      @select="selectRelease"
+      @add="openAddModal"
+    />
+
+    <main class="flex">
+      <ReleaseInfoPanel
+        v-if="currentRelease"
+        :release="currentRelease"
+        @edit="openEditModal"
+        @delete="confirmDeleteRelease"
       />
 
-      <KanbanBoard :issues="filteredIssues" />
+      <div class="flex-1 container mx-auto px-6 py-8">
+        <FilterBar
+          v-if="allIssues.length > 0"
+          :issues="allIssues"
+          @filter-change="handleFilterChange"
+        />
+
+        <KanbanBoard :issues="filteredIssues" />
+
+        <div v-if="isInitialized && !selectedRelease" class="text-center py-12 text-gray-500">
+          <p class="text-lg">No releases configured.</p>
+          <p>Click "+ Add" above to add your first release.</p>
+        </div>
+      </div>
     </main>
+
+    <ReleaseModal
+      :show="showReleaseModal"
+      :release="editingRelease"
+      @save="saveRelease"
+      @cancel="closeModal"
+    />
   </div>
 </template>
 
 <script>
 import KanbanBoard from './components/KanbanBoard.vue'
 import FilterBar from './components/FilterBar.vue'
+import ReleaseTabBar from './components/ReleaseTabBar.vue'
+import ReleaseInfoPanel from './components/ReleaseInfoPanel.vue'
+import ReleaseModal from './components/ReleaseModal.vue'
 
 export default {
   name: 'App',
   components: {
     KanbanBoard,
-    FilterBar
+    FilterBar,
+    ReleaseTabBar,
+    ReleaseInfoPanel,
+    ReleaseModal
   },
   data() {
     return {
@@ -74,13 +109,147 @@ export default {
         status: '',
         team: '',
         issueType: ''
-      }
+      },
+      releases: [],
+      selectedRelease: null,
+      showReleaseModal: false,
+      editingRelease: null,
+      isInitialized: false
+    }
+  },
+  computed: {
+    currentRelease() {
+      return this.releases.find(r => r.name === this.selectedRelease)
     }
   },
   async mounted() {
-    await this.fetchIssues()
+    await this.loadReleases()
+    if (this.selectedRelease) {
+      await this.refreshData()
+    }
   },
   methods: {
+    async loadReleases() {
+      try {
+        const response = await fetch('/api/releases')
+        const data = await response.json()
+        this.releases = data.releases || []
+
+        if (this.releases.length === 0) {
+          this.showReleaseModal = true
+        } else {
+          const saved = localStorage.getItem('selectedRelease')
+          if (saved && this.releases.find(r => r.name === saved)) {
+            this.selectedRelease = saved
+          } else {
+            this.selectedRelease = this.getLowestVersion()
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load releases:', error)
+        this.releases = []
+        this.showReleaseModal = true
+      }
+      this.isInitialized = true
+    },
+
+    getLowestVersion() {
+      if (this.releases.length === 0) return null
+      return this.releases
+        .slice()
+        .sort((a, b) => {
+          const aMatch = a.name.match(/rhoai-(\d+)\.(\d+)/)
+          const bMatch = b.name.match(/rhoai-(\d+)\.(\d+)/)
+          if (!aMatch || !bMatch) return 0
+          const [, aMaj, aMin] = aMatch.map(Number)
+          const [, bMaj, bMin] = bMatch.map(Number)
+          if (aMaj !== bMaj) return aMaj - bMaj
+          return aMin - bMin
+        })[0]?.name
+    },
+
+    async selectRelease(releaseName) {
+      if (releaseName === this.selectedRelease) return
+      this.selectedRelease = releaseName
+      localStorage.setItem('selectedRelease', releaseName)
+      await this.refreshData()
+    },
+
+    async saveRelease(releaseData) {
+      if (this.editingRelease) {
+        const index = this.releases.findIndex(r => r.name === this.editingRelease.name)
+        if (index !== -1) {
+          this.releases[index] = releaseData
+        }
+      } else {
+        this.releases.push(releaseData)
+      }
+
+      try {
+        await fetch('/api/releases', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ releases: this.releases })
+        })
+      } catch (error) {
+        console.error('Failed to save releases:', error)
+        alert('Failed to save release configuration')
+      }
+
+      this.showReleaseModal = false
+      this.editingRelease = null
+
+      if (!this.selectedRelease) {
+        await this.selectRelease(releaseData.name)
+      }
+    },
+
+    async confirmDeleteRelease() {
+      if (!confirm(`Are you sure you want to delete ${this.selectedRelease}?`)) {
+        return
+      }
+
+      const index = this.releases.findIndex(r => r.name === this.selectedRelease)
+      if (index !== -1) {
+        this.releases.splice(index, 1)
+      }
+
+      try {
+        await fetch('/api/releases', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ releases: this.releases })
+        })
+      } catch (error) {
+        console.error('Failed to save releases:', error)
+      }
+
+      if (this.releases.length > 0) {
+        await this.selectRelease(this.getLowestVersion())
+      } else {
+        this.selectedRelease = null
+        localStorage.removeItem('selectedRelease')
+        this.allIssues = []
+        this.filteredIssues = []
+        this.showReleaseModal = true
+      }
+    },
+
+    openAddModal() {
+      this.editingRelease = null
+      this.showReleaseModal = true
+    },
+
+    openEditModal() {
+      this.editingRelease = this.currentRelease
+      this.showReleaseModal = true
+    },
+
+    closeModal() {
+      this.showReleaseModal = false
+      this.editingRelease = null
+    },
+
     async fetchIssues() {
       try {
         const response = await fetch('/issues.json')
@@ -89,47 +258,59 @@ export default {
         this.allIssues = data.issues
         this.filteredIssues = data.issues
         this.lastUpdated = data.lastUpdated
+        this.applyFilters()
       } catch (error) {
         console.error('Failed to fetch issues:', error)
+        this.allIssues = []
+        this.filteredIssues = []
       }
     },
+
     handleFilterChange(filters) {
       this.filters = filters
+      this.applyFilters()
+    },
 
+    applyFilters() {
       this.filteredIssues = this.allIssues.filter(issue => {
-        if (filters.assignee && issue.assignee !== filters.assignee) {
+        if (this.filters.assignee && issue.assignee !== this.filters.assignee) {
           return false
         }
-        if (filters.status && issue.status !== filters.status) {
+        if (this.filters.status && issue.status !== this.filters.status) {
           return false
         }
-        if (filters.team && issue.team !== filters.team) {
+        if (this.filters.team && issue.team !== this.filters.team) {
           return false
         }
-        if (filters.issueType && issue.issueType !== filters.issueType) {
+        if (this.filters.issueType && issue.issueType !== this.filters.issueType) {
           return false
         }
         return true
       })
     },
+
     formatDate(dateString) {
       const date = new Date(dateString)
       return date.toLocaleString()
     },
+
     async refreshData() {
+      if (!this.selectedRelease) return
+
       this.isRefreshing = true
 
       try {
         const response = await fetch('/api/refresh', {
-          method: 'POST'
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ targetRelease: this.selectedRelease })
         })
 
         const result = await response.json()
 
         if (result.success) {
-          // Reload the issues from the updated file
           await this.fetchIssues()
-          console.log(`Refreshed ${result.count} issues`)
+          console.log(`Refreshed ${result.count} issues for ${this.selectedRelease}`)
         } else {
           console.error('Refresh failed:', result.error)
           alert(`Failed to refresh: ${result.error}`)
