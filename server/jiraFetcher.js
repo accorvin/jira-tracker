@@ -95,7 +95,7 @@ async function fetchIssuesFromJira(token) {
     url.searchParams.set('startAt', startAt.toString())
     url.searchParams.set('maxResults', maxResults.toString())
     url.searchParams.set('fields', fields)
-    url.searchParams.set('expand', 'changelog')
+    url.searchParams.set('expand', 'changelog,renderedFields')
 
     const response = await fetch(url.toString(), {
       headers: {
@@ -228,6 +228,11 @@ function serializeListField(fieldValue) {
  */
 function transformIssue(issue) {
   const fields = issue.fields
+  const renderedFields = issue.renderedFields || {}
+
+  // Use rendered HTML for status summary if available, otherwise fall back to raw
+  const statusSummary = renderedFields[CUSTOM_FIELDS.statusSummary] ||
+    serializeField(fields[CUSTOM_FIELDS.statusSummary])
 
   return {
     key: issue.key,
@@ -238,7 +243,7 @@ function transformIssue(issue) {
     team: serializeField(fields[CUSTOM_FIELDS.team]),
     releaseType: serializeField(fields[CUSTOM_FIELDS.releaseType]),
     targetRelease: serializeListField(fields[CUSTOM_FIELDS.targetRelease]),
-    statusSummary: serializeField(fields[CUSTOM_FIELDS.statusSummary]),
+    statusSummary: statusSummary,
     statusSummaryUpdated: getStatusSummaryUpdatedDate(issue),
     url: `https://issues.redhat.com/browse/${issue.key}`
   }
