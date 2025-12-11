@@ -251,7 +251,35 @@ function transformIssue(issue) {
 }
 
 /**
- * Main function: Fetch issues from Jira and write to public/issues.json
+ * Fetch issues for all releases and write to per-release JSON files
+ * @param {Array<{name: string}>} releases - Array of release objects
+ * @returns {Promise<{success: boolean, results: Array<{release: string, count: number, error?: string}>}>}
+ */
+export async function fetchAndWriteAllReleases(releases) {
+  const results = []
+
+  for (const release of releases) {
+    console.log(`\nFetching issues for ${release.name}...`)
+    const result = await fetchAndWriteIssues(release.name)
+    results.push({
+      release: release.name,
+      count: result.count,
+      error: result.error
+    })
+  }
+
+  const allSucceeded = results.every(r => !r.error)
+  const totalCount = results.reduce((sum, r) => sum + r.count, 0)
+
+  return {
+    success: allSucceeded,
+    results,
+    totalCount
+  }
+}
+
+/**
+ * Main function: Fetch issues from Jira and write to public/issues-{release}.json
  * @param {string} targetRelease - Target release version (e.g., 'rhoai-3.2')
  * @returns {Promise<{success: boolean, count: number, error?: string}>}
  */
@@ -278,10 +306,10 @@ export async function fetchAndWriteIssues(targetRelease) {
     }
 
     // Write to file
-    const outputPath = path.join(__dirname, '..', 'public', 'issues.json')
+    const outputPath = path.join(__dirname, '..', 'public', `issues-${targetRelease}.json`)
     await fs.writeFile(outputPath, JSON.stringify(output, null, 2))
 
-    console.log(`Wrote ${transformedIssues.length} issues to public/issues.json`)
+    console.log(`Wrote ${transformedIssues.length} issues to public/issues-${targetRelease}.json`)
 
     return { success: true, count: transformedIssues.length }
   } catch (error) {

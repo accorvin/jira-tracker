@@ -1,7 +1,7 @@
 /**
  * Vite plugin to add API endpoints for Jira refresh and release management
  */
-import { fetchAndWriteIssues } from './jiraFetcher.js'
+import { fetchAndWriteIssues, fetchAndWriteAllReleases } from './jiraFetcher.js'
 import fs from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -95,26 +95,28 @@ export function jiraRefreshPlugin() {
           return
         }
 
-        // POST /api/refresh - Fetch issues from Jira
+        // POST /api/refresh - Fetch issues from Jira for all releases
         if (req.method === 'POST' && req.url === '/api/refresh') {
           console.log('Received refresh request...')
 
           try {
-            const body = await parseJsonBody(req)
-            const { targetRelease } = body
+            // Read all releases
+            const releasesData = await readReleases()
+            const releases = releasesData.releases || []
 
-            if (!targetRelease) {
+            if (releases.length === 0) {
               res.setHeader('Content-Type', 'application/json')
               res.statusCode = 400
               res.end(JSON.stringify({
                 success: false,
-                count: 0,
-                error: 'targetRelease is required'
+                totalCount: 0,
+                error: 'No releases configured'
               }))
               return
             }
 
-            const result = await fetchAndWriteIssues(targetRelease)
+            // Fetch all releases
+            const result = await fetchAndWriteAllReleases(releases)
 
             res.setHeader('Content-Type', 'application/json')
             res.statusCode = result.success ? 200 : 500
@@ -124,7 +126,7 @@ export function jiraRefreshPlugin() {
             res.statusCode = 500
             res.end(JSON.stringify({
               success: false,
-              count: 0,
+              totalCount: 0,
               error: error.message
             }))
           }

@@ -12,7 +12,7 @@
           </div>
           <button
             @click="refreshData"
-            :disabled="isRefreshing || !selectedRelease"
+            :disabled="isRefreshing || releases.length === 0"
             class="px-4 py-2 bg-white text-primary-700 rounded-md font-medium hover:bg-primary-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
           >
             <svg
@@ -125,7 +125,7 @@ export default {
   async mounted() {
     await this.loadReleases()
     if (this.selectedRelease) {
-      await this.refreshData()
+      await this.fetchIssues()
     }
   },
   methods: {
@@ -172,7 +172,7 @@ export default {
       if (releaseName === this.selectedRelease) return
       this.selectedRelease = releaseName
       localStorage.setItem('selectedRelease', releaseName)
-      await this.refreshData()
+      await this.fetchIssues()
     },
 
     async saveRelease(releaseData) {
@@ -251,8 +251,15 @@ export default {
     },
 
     async fetchIssues() {
+      if (!this.selectedRelease) {
+        this.allIssues = []
+        this.filteredIssues = []
+        this.lastUpdated = null
+        return
+      }
+
       try {
-        const response = await fetch('/issues.json')
+        const response = await fetch(`/issues-${this.selectedRelease}.json`)
         const data = await response.json()
 
         this.allIssues = data.issues
@@ -260,9 +267,10 @@ export default {
         this.lastUpdated = data.lastUpdated
         this.applyFilters()
       } catch (error) {
-        console.error('Failed to fetch issues:', error)
+        console.error(`Failed to fetch issues for ${this.selectedRelease}:`, error)
         this.allIssues = []
         this.filteredIssues = []
+        this.lastUpdated = null
       }
     },
 
@@ -295,22 +303,21 @@ export default {
     },
 
     async refreshData() {
-      if (!this.selectedRelease) return
+      if (this.releases.length === 0) return
 
       this.isRefreshing = true
 
       try {
         const response = await fetch('/api/refresh', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ targetRelease: this.selectedRelease })
+          headers: { 'Content-Type': 'application/json' }
         })
 
         const result = await response.json()
 
         if (result.success) {
           await this.fetchIssues()
-          console.log(`Refreshed ${result.count} issues for ${this.selectedRelease}`)
+          console.log(`Refreshed ${result.totalCount} issues across ${result.results.length} releases`)
         } else {
           console.error('Refresh failed:', result.error)
           alert(`Failed to refresh: ${result.error}`)
