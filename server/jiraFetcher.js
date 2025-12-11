@@ -31,7 +31,8 @@ const CUSTOM_FIELDS = {
   team: 'customfield_12313240',
   releaseType: 'customfield_12320840',
   targetRelease: 'customfield_12319940',
-  statusSummary: 'customfield_12320841'
+  statusSummary: 'customfield_12320841',
+  colorStatus: 'customfield_12320845'
 }
 
 /**
@@ -83,7 +84,8 @@ async function fetchIssuesFromJira(token, targetRelease) {
     CUSTOM_FIELDS.team,
     CUSTOM_FIELDS.releaseType,
     CUSTOM_FIELDS.targetRelease,
-    CUSTOM_FIELDS.statusSummary
+    CUSTOM_FIELDS.statusSummary,
+    CUSTOM_FIELDS.colorStatus
   ].join(',')
 
   const issues = []
@@ -246,6 +248,7 @@ function transformIssue(issue) {
     targetRelease: serializeListField(fields[CUSTOM_FIELDS.targetRelease]),
     statusSummary: statusSummary,
     statusSummaryUpdated: getStatusSummaryUpdatedDate(issue),
+    colorStatus: serializeField(fields[CUSTOM_FIELDS.colorStatus]),
     url: `https://issues.redhat.com/browse/${issue.key}`
   }
 }

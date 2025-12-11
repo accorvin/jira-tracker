@@ -647,6 +647,119 @@ describe('IssueCard', () => {
     })
   })
 
+  // Color Status field tests
+  describe('Color Status field display', () => {
+    it('displays Color Status field above Status Age field', () => {
+      const issueWithColorStatus = {
+        ...mockIssue,
+        colorStatus: 'Green'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithColorStatus }
+      })
+
+      expect(wrapper.text()).toContain('Color Status:')
+    })
+
+    it('highlights Green color status in green text', () => {
+      const issueWithGreen = {
+        ...mockIssue,
+        colorStatus: 'Green'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithGreen }
+      })
+
+      const colorStatusValue = wrapper.find('.field-color-status .field-value')
+      expect(colorStatusValue.text()).toBe('Green')
+      expect(colorStatusValue.classes()).toContain('bg-green-600')
+      expect(colorStatusValue.classes()).toContain('text-white')
+    })
+
+    it('highlights Red color status in red text', () => {
+      const issueWithRed = {
+        ...mockIssue,
+        colorStatus: 'Red'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithRed }
+      })
+
+      const colorStatusValue = wrapper.find('.field-color-status .field-value')
+      expect(colorStatusValue.text()).toBe('Red')
+      expect(colorStatusValue.classes()).toContain('bg-red-600')
+      expect(colorStatusValue.classes()).toContain('text-white')
+    })
+
+    it('highlights Yellow color status in yellow text', () => {
+      const issueWithYellow = {
+        ...mockIssue,
+        colorStatus: 'Yellow'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithYellow }
+      })
+
+      const colorStatusValue = wrapper.find('.field-color-status .field-value')
+      expect(colorStatusValue.text()).toBe('Yellow')
+      expect(colorStatusValue.classes()).toContain('bg-yellow-400')
+      expect(colorStatusValue.classes()).toContain('text-gray-900')
+    })
+
+    it('shows "Not set" in red when In Progress issue has no color status', () => {
+      const inProgressWithoutColor = {
+        ...mockIssue,
+        status: 'In Progress',
+        colorStatus: null
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: inProgressWithoutColor }
+      })
+
+      const colorStatusValue = wrapper.find('.field-color-status .field-value')
+      expect(colorStatusValue.text()).toBe('Not set')
+      expect(colorStatusValue.classes()).toContain('bg-red-100')
+      expect(colorStatusValue.classes()).toContain('text-red-900')
+    })
+
+    it('shows "Not set" in normal styling when non-In Progress issue has no color status', () => {
+      const newIssueWithoutColor = {
+        ...mockIssue,
+        status: 'New',
+        colorStatus: null
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: newIssueWithoutColor }
+      })
+
+      const colorStatusValue = wrapper.find('.field-color-status .field-value')
+      expect(colorStatusValue.text()).toBe('Not set')
+      expect(colorStatusValue.classes()).toContain('text-gray-900')
+      expect(colorStatusValue.classes()).not.toContain('bg-red-100')
+    })
+
+    it('handles color status case-insensitively', () => {
+      const issueWithLowerCaseGreen = {
+        ...mockIssue,
+        colorStatus: 'green'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithLowerCaseGreen }
+      })
+
+      const colorStatusValue = wrapper.find('.field-color-status .field-value')
+      expect(colorStatusValue.text()).toBe('green')
+      expect(colorStatusValue.classes()).toContain('bg-green-600')
+    })
+  })
+
   // Card flip tests
   describe('Card flip functionality', () => {
     it('shows default card view initially', () => {

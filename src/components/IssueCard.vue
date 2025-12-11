@@ -84,6 +84,16 @@
             <span v-else class="field-value bg-red-100 text-red-900 px-2 py-1 rounded font-medium">Not set</span>
           </div>
 
+          <div class="flex items-center field-color-status">
+            <span class="font-medium text-gray-600 w-32">Color Status:</span>
+            <span
+              class="field-value px-2 py-1 rounded font-medium"
+              :class="colorStatusClass"
+            >
+              {{ colorStatusText }}
+            </span>
+          </div>
+
           <div class="flex items-center field-status-age">
             <span class="font-medium text-gray-600 w-32">Status Age:</span>
             <span
@@ -232,6 +242,34 @@ export default {
         month: 'long',
         day: 'numeric'
       })}`
+    },
+    colorStatusText() {
+      return this.issue.colorStatus || 'Not set'
+    },
+    colorStatusClass() {
+      // If colorStatus is not set
+      if (!this.issue.colorStatus) {
+        // If status is "In Progress", highlight in red
+        if (this.issue.status === 'In Progress') {
+          return 'bg-red-100 text-red-900'
+        }
+        // Otherwise, normal styling
+        return 'text-gray-900'
+      }
+
+      // Handle color status values (case-insensitive)
+      const color = this.issue.colorStatus.toLowerCase()
+
+      if (color === 'green') {
+        return 'bg-green-600 text-white'
+      } else if (color === 'red') {
+        return 'bg-red-600 text-white'
+      } else if (color === 'yellow') {
+        return 'bg-yellow-400 text-gray-900'
+      }
+
+      // Default styling for unknown colors
+      return 'text-gray-900'
     }
   },
   methods: {
