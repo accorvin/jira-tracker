@@ -12,19 +12,8 @@ node_modules
 dist
 dist-ssr
 
-# Python virtual environment and cache
-venv/
-__pycache__/
-*.py[cod]
-*$py.class
-.Python
-.pytest_cache
-*.egg-info/
-.eggs/
-
 # Generated/fetched data - contains Jira API data
 public/issues.json
-scripts/public/
 # Keep the logo
 !public/redhat-logo.svg
 
@@ -64,14 +53,6 @@ Thumbs.db
 
 # Coverage and test reports
 coverage/
-.coverage
-.coverage.*
-htmlcov/
-.tox/
-.pytest_cache/
 
 # Build artifacts
 build/
-dist/
-dist-ssr/
-*.egg-info/
