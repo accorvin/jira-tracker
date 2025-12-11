@@ -767,9 +767,13 @@ describe('IssueCard', () => {
         props: { issue: mockIssue }
       })
 
-      // Should show the front of the card with all default fields
-      expect(wrapper.find('.card-front').exists()).toBe(true)
-      expect(wrapper.find('.card-back').exists()).toBe(false)
+      // Both sides exist but front is visible (opacity-100) and back is hidden (opacity-0)
+      const front = wrapper.find('.card-front')
+      const back = wrapper.find('.card-back')
+      expect(front.exists()).toBe(true)
+      expect(back.exists()).toBe(true)
+      expect(front.classes()).toContain('opacity-100')
+      expect(back.classes()).toContain('opacity-0')
       expect(wrapper.text()).toContain(mockIssue.summary)
       expect(wrapper.text()).toContain(mockIssue.assignee)
     })
@@ -782,10 +786,11 @@ describe('IssueCard', () => {
       // Click the card
       await wrapper.find('.card-container').trigger('click')
 
-      // Should show the back of the card
-      expect(wrapper.find('.card-front').exists()).toBe(false)
-      expect(wrapper.find('.card-back').exists()).toBe(true)
-      expect(wrapper.text()).toContain(mockIssue.statusSummary)
+      // Front should be hidden, back should be visible
+      const front = wrapper.find('.card-front')
+      const back = wrapper.find('.card-back')
+      expect(front.classes()).toContain('opacity-0')
+      expect(back.classes()).toContain('opacity-100')
     })
 
     it('flips back to default view when clicked again', async () => {
@@ -795,12 +800,12 @@ describe('IssueCard', () => {
 
       // Click once to flip to status summary
       await wrapper.find('.card-container').trigger('click')
-      expect(wrapper.find('.card-back').exists()).toBe(true)
+      expect(wrapper.find('.card-back').classes()).toContain('opacity-100')
 
       // Click again to flip back
       await wrapper.find('.card-container').trigger('click')
-      expect(wrapper.find('.card-front').exists()).toBe(true)
-      expect(wrapper.find('.card-back').exists()).toBe(false)
+      expect(wrapper.find('.card-front').classes()).toContain('opacity-100')
+      expect(wrapper.find('.card-back').classes()).toContain('opacity-0')
     })
 
     it('shows "Status Summary" header on back of card', async () => {
@@ -847,14 +852,16 @@ describe('IssueCard', () => {
       expect(container.classes()).toContain('cursor-pointer')
     })
 
-    it('has flip animation class on card container', () => {
+    it('has transition classes for flip animation', () => {
       const wrapper = mount(IssueCard, {
         props: { issue: mockIssue }
       })
 
-      const container = wrapper.find('.card-container')
-      // Should have a class for flip animation
-      expect(container.attributes('class')).toContain('card-flip')
+      // Card uses opacity-based transitions
+      const front = wrapper.find('.card-front')
+      const back = wrapper.find('.card-back')
+      expect(front.classes()).toContain('transition-opacity')
+      expect(back.classes()).toContain('transition-opacity')
     })
 
     it('status summary content is scrollable', async () => {

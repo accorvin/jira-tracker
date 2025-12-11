@@ -1,137 +1,131 @@
 <template>
   <div
-    class="card-container card-flip cursor-pointer bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow border-l-4 border-primary-500 relative min-h-[400px]"
+    class="card-container cursor-pointer bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow border-l-4 border-primary-500 relative"
     @click="toggleFlip"
   >
-    <!-- Front of card -->
-    <transition name="flip" mode="out-in">
-      <div
-        v-if="!isFlipped"
-        key="front"
-        class="card-front p-6 absolute inset-0 overflow-hidden"
-        ref="cardFront"
-      >
-        <div class="flex justify-between items-start mb-3">
-          <a
-            :href="issue.url"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-primary-600 hover:text-primary-800 font-semibold text-lg"
-            @click.stop
-          >
-            {{ issue.key }}
-          </a>
+    <!-- Front of card - always rendered, controls card height -->
+    <div
+      class="card-front p-6 pb-12 transition-opacity duration-300"
+      :class="isFlipped ? 'opacity-0 pointer-events-none' : 'opacity-100'"
+      ref="cardFront"
+    >
+      <div class="flex justify-between items-start mb-3">
+        <a
+          :href="issue.url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-primary-600 hover:text-primary-800 font-semibold text-lg"
+          @click.stop
+        >
+          {{ issue.key }}
+        </a>
+        <span
+          class="px-3 py-1 rounded-full text-sm font-medium"
+          :class="issueTypeBadgeClass"
+        >
+          {{ issue.issueType }}
+        </span>
+      </div>
+
+      <h3 class="text-xl font-semibold text-gray-900 mb-6">
+        {{ issue.summary }}
+      </h3>
+
+      <div class="space-y-2 text-sm">
+        <div class="flex items-center">
+          <span class="font-medium text-gray-600 w-32">Status:</span>
           <span
-            class="px-3 py-1 rounded-full text-sm font-medium"
-            :class="issueTypeBadgeClass"
+            class="px-2 py-1 rounded text-sm font-medium"
+            :class="statusBadgeClass"
           >
-            {{ issue.issueType }}
+            {{ issue.status }}
           </span>
         </div>
 
-        <h3 class="text-xl font-semibold text-gray-900 mb-6">
-          {{ issue.summary }}
-        </h3>
-
-        <div class="space-y-2 text-sm">
-          <div class="flex items-center">
-            <span class="font-medium text-gray-600 w-32">Status:</span>
-            <span
-              class="px-2 py-1 rounded text-sm font-medium"
-              :class="statusBadgeClass"
-            >
-              {{ issue.status }}
-            </span>
-          </div>
-
-          <div class="flex items-center">
-            <span class="font-medium text-gray-600 w-32">Assignee:</span>
-            <span class="text-gray-900">{{ issue.assignee || 'Unassigned' }}</span>
-          </div>
-
-          <div class="flex items-center field-team">
-            <span class="font-medium text-gray-600 w-32">Team:</span>
-            <span
-              class="field-value"
-              :class="issue.team ? 'text-gray-900' : 'bg-red-100 text-red-900 px-2 py-1 rounded font-medium'"
-            >
-              {{ issue.team || 'Not set' }}
-            </span>
-          </div>
-
-          <div class="flex items-center field-release-type">
-            <span class="font-medium text-gray-600 w-32">Release Type:</span>
-            <span
-              class="field-value"
-              :class="issue.releaseType ? 'text-gray-900' : 'bg-red-100 text-red-900 px-2 py-1 rounded font-medium'"
-            >
-              {{ issue.releaseType || 'Not set' }}
-            </span>
-          </div>
-
-          <div class="flex items-center field-target-release">
-            <span class="font-medium text-gray-600 w-32">Target Release:</span>
-            <div v-if="issue.targetRelease && issue.targetRelease.length > 0" class="flex flex-wrap gap-2">
-              <span
-                v-for="(release, index) in issue.targetRelease"
-                :key="release"
-                class="target-release-bubble px-2 py-1 rounded-full text-sm font-medium"
-                :class="getReleaseColorClass(release, index)"
-              >
-                {{ release }}
-              </span>
-            </div>
-            <span v-else class="field-value bg-red-100 text-red-900 px-2 py-1 rounded font-medium">Not set</span>
-          </div>
-
-          <div class="flex items-center field-color-status">
-            <span class="font-medium text-gray-600 w-32">Color Status:</span>
-            <span
-              class="field-value px-2 py-1 rounded font-medium"
-              :class="colorStatusClass"
-            >
-              {{ colorStatusText }}
-            </span>
-          </div>
-
-          <div class="flex items-center field-status-age">
-            <span class="font-medium text-gray-600 w-32">Status Age:</span>
-            <span
-              class="field-value"
-              :class="statusAgeClass"
-            >
-              {{ statusAgeText }}
-            </span>
-          </div>
+        <div class="flex items-center">
+          <span class="font-medium text-gray-600 w-32">Assignee:</span>
+          <span class="text-gray-900">{{ issue.assignee || 'Unassigned' }}</span>
         </div>
 
-        <!-- Info icon badge -->
-        <div class="absolute bottom-4 right-4 text-primary-500 opacity-60">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-          </svg>
+        <div class="flex items-center field-team">
+          <span class="font-medium text-gray-600 w-32">Team:</span>
+          <span
+            class="field-value"
+            :class="issue.team ? 'text-gray-900' : 'bg-red-100 text-red-900 px-2 py-1 rounded font-medium'"
+          >
+            {{ issue.team || 'Not set' }}
+          </span>
+        </div>
+
+        <div class="flex items-center field-release-type">
+          <span class="font-medium text-gray-600 w-32">Release Type:</span>
+          <span
+            class="field-value"
+            :class="issue.releaseType ? 'text-gray-900' : 'bg-red-100 text-red-900 px-2 py-1 rounded font-medium'"
+          >
+            {{ issue.releaseType || 'Not set' }}
+          </span>
+        </div>
+
+        <div class="flex items-center field-target-release">
+          <span class="font-medium text-gray-600 w-32">Target Release:</span>
+          <div v-if="issue.targetRelease && issue.targetRelease.length > 0" class="flex flex-wrap gap-2">
+            <span
+              v-for="(release, index) in issue.targetRelease"
+              :key="release"
+              class="target-release-bubble px-2 py-1 rounded-full text-sm font-medium"
+              :class="getReleaseColorClass(release, index)"
+            >
+              {{ release }}
+            </span>
+          </div>
+          <span v-else class="field-value bg-red-100 text-red-900 px-2 py-1 rounded font-medium">Not set</span>
+        </div>
+
+        <div class="flex items-center field-color-status">
+          <span class="font-medium text-gray-600 w-32">Color Status:</span>
+          <span
+            class="field-value px-2 py-1 rounded font-medium"
+            :class="colorStatusClass"
+          >
+            {{ colorStatusText }}
+          </span>
+        </div>
+
+        <div class="flex items-center field-status-age">
+          <span class="font-medium text-gray-600 w-32">Status Age:</span>
+          <span
+            class="field-value"
+            :class="statusAgeClass"
+          >
+            {{ statusAgeText }}
+          </span>
         </div>
       </div>
-    </transition>
 
-    <!-- Back of card -->
-    <transition name="flip" mode="out-in">
+      <!-- Info icon badge -->
+      <div class="absolute bottom-4 right-4 text-primary-500 opacity-60 pointer-events-none">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+        </svg>
+      </div>
+    </div>
+
+    <!-- Back of card - absolutely positioned on top of front -->
+    <div
+      class="card-back absolute inset-0 p-6 overflow-y-auto transition-opacity duration-300"
+      :class="isFlipped ? 'opacity-100' : 'opacity-0 pointer-events-none'"
+      ref="cardBack"
+    >
+      <h3 class="text-xl font-semibold text-gray-900 mb-2 border-b pb-2">Status Summary</h3>
+      <div class="text-gray-600 text-sm mb-4">
+        {{ statusSummaryDateText }}
+      </div>
       <div
-        v-if="isFlipped"
-        key="back"
-        class="card-back p-6 absolute inset-0 overflow-y-auto"
-        ref="cardBack"
-      >
-        <h3 class="text-xl font-semibold text-gray-900 mb-2 border-b pb-2">Status Summary</h3>
-        <div class="text-gray-600 text-sm mb-4">
-          {{ statusSummaryDateText }}
-        </div>
-        <div
-          class="status-summary-content text-gray-700 text-sm leading-relaxed"
-          v-html="sanitizedStatusSummary"
-        ></div>
-      </div>
-    </transition>
+        class="status-summary-content text-gray-700 text-sm leading-relaxed"
+        v-html="sanitizedStatusSummary"
+      ></div>
+    </div>
   </div>
 </template>
 
