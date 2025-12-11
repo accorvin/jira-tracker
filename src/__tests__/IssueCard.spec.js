@@ -520,6 +520,133 @@ describe('IssueCard', () => {
     })
   })
 
+  // Status summary HTML rendering tests
+  describe('Status summary HTML rendering', () => {
+    it('renders HTML content instead of escaping it', async () => {
+      const issueWithHtml = {
+        ...mockIssue,
+        statusSummary: '<p>Status update</p><ul><li>Item one</li><li>Item two</li></ul>'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithHtml }
+      })
+
+      await wrapper.find('.card-container').trigger('click')
+
+      // Should render as HTML, not show the tags as text
+      const content = wrapper.find('.status-summary-content')
+      expect(content.exists()).toBe(true)
+      expect(content.find('p').exists()).toBe(true)
+      expect(content.find('ul').exists()).toBe(true)
+      expect(content.findAll('li')).toHaveLength(2)
+    })
+
+    it('strips script tags for XSS protection', async () => {
+      const issueWithScript = {
+        ...mockIssue,
+        statusSummary: '<p>Safe content</p><script>alert("xss")</script>'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithScript }
+      })
+
+      await wrapper.find('.card-container').trigger('click')
+
+      const content = wrapper.find('.status-summary-content')
+      expect(content.html()).not.toContain('<script>')
+      expect(content.html()).not.toContain('alert')
+      expect(content.find('p').text()).toBe('Safe content')
+    })
+
+    it('adds target="_blank" and rel="noopener noreferrer" to links', async () => {
+      const issueWithLink = {
+        ...mockIssue,
+        statusSummary: '<p>See <a href="https://example.com">this link</a></p>'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithLink }
+      })
+
+      await wrapper.find('.card-container').trigger('click')
+
+      const link = wrapper.find('.status-summary-content a')
+      expect(link.exists()).toBe(true)
+      expect(link.attributes('target')).toBe('_blank')
+      expect(link.attributes('rel')).toBe('noopener noreferrer')
+      expect(link.attributes('href')).toBe('https://example.com')
+    })
+
+    it('preserves font color attributes for status indicators', async () => {
+      const issueWithColor = {
+        ...mockIssue,
+        statusSummary: '<p>Status: <font color="#00875a">Green</font></p>'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithColor }
+      })
+
+      await wrapper.find('.card-container').trigger('click')
+
+      const font = wrapper.find('.status-summary-content font')
+      expect(font.exists()).toBe(true)
+      expect(font.attributes('color')).toBe('#00875a')
+    })
+
+    it('shows fallback message when statusSummary is null', async () => {
+      const issueWithoutSummary = {
+        ...mockIssue,
+        statusSummary: null
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithoutSummary }
+      })
+
+      await wrapper.find('.card-container').trigger('click')
+
+      const content = wrapper.find('.status-summary-content')
+      expect(content.text()).toContain('No status summary available')
+    })
+
+    it('renders bold text correctly', async () => {
+      const issueWithBold = {
+        ...mockIssue,
+        statusSummary: '<p><b>Important:</b> This is bold</p>'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithBold }
+      })
+
+      await wrapper.find('.card-container').trigger('click')
+
+      const bold = wrapper.find('.status-summary-content b')
+      expect(bold.exists()).toBe(true)
+      expect(bold.text()).toBe('Important:')
+    })
+
+    it('renders headings correctly', async () => {
+      const issueWithHeading = {
+        ...mockIssue,
+        statusSummary: '<h2>Status Update</h2><p>Details here</p>'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithHeading }
+      })
+
+      await wrapper.find('.card-container').trigger('click')
+
+      const heading = wrapper.find('.status-summary-content h2')
+      expect(heading.exists()).toBe(true)
+      expect(heading.text()).toBe('Status Update')
+    })
+  })
+
   // Card flip tests
   describe('Card flip functionality', () => {
     it('shows default card view initially', () => {

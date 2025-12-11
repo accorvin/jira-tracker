@@ -116,15 +116,26 @@
         <div class="text-gray-600 text-sm mb-4">
           {{ statusSummaryDateText }}
         </div>
-        <div class="text-gray-700 text-sm leading-relaxed" style="white-space: pre-line;">
-          {{ formattedStatusSummary }}
-        </div>
+        <div
+          class="status-summary-content text-gray-700 text-sm leading-relaxed"
+          v-html="sanitizedStatusSummary"
+        ></div>
       </div>
     </transition>
   </div>
 </template>
 
 <script>
+import DOMPurify from 'dompurify'
+
+// Configure DOMPurify to add target and rel to links
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName === 'A') {
+    node.setAttribute('target', '_blank')
+    node.setAttribute('rel', 'noopener noreferrer')
+  }
+})
+
 export default {
   name: 'IssueCard',
   props: {
@@ -157,16 +168,15 @@ export default {
       }
       return statusColors[this.issue.status] || 'bg-gray-100 text-gray-800'
     },
-    formattedStatusSummary() {
+    sanitizedStatusSummary() {
       if (!this.issue.statusSummary) {
-        return 'No status summary available'
+        return '<p class="text-gray-500 italic">No status summary available</p>'
       }
-      // Replace \r\n and \n with actual newlines for proper display
-      return this.issue.statusSummary
-        .replace(/\\r\\n/g, '\n')
-        .replace(/\\n/g, '\n')
-        .replace(/\r\n/g, '\n')
-        .replace(/\r/g, '\n')
+
+      return DOMPurify.sanitize(this.issue.statusSummary, {
+        ALLOWED_TAGS: ['p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'a', 'b', 'strong', 'i', 'em', 'font', 'br'],
+        ALLOWED_ATTR: ['href', 'color', 'class']
+      })
     },
     statusAgeInDays() {
       if (!this.issue.statusSummaryUpdated) {
@@ -276,5 +286,51 @@ export default {
 .flip-leave-from {
   opacity: 1;
   transform: rotateY(0deg);
+}
+
+/* Status summary HTML content styling */
+.status-summary-content :deep(p) {
+  margin-bottom: 0.75rem;
+}
+
+.status-summary-content :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.status-summary-content :deep(ul) {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.status-summary-content :deep(ol) {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.status-summary-content :deep(li) {
+  margin-bottom: 0.25rem;
+}
+
+.status-summary-content :deep(h1),
+.status-summary-content :deep(h2),
+.status-summary-content :deep(h3) {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.status-summary-content :deep(h2) {
+  font-size: 1.125rem;
+}
+
+.status-summary-content :deep(a) {
+  color: #2563eb; /* primary-600 */
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.status-summary-content :deep(a:hover) {
+  color: #1e40af; /* primary-800 */
 }
 </style>
