@@ -70,6 +70,8 @@
 </template>
 
 <script>
+const STORAGE_KEY = 'kanban-filters'
+
 export default {
   name: 'FilterBar',
   props: {
@@ -81,12 +83,13 @@ export default {
   },
   data() {
     return {
-      filters: {
-        assignee: '',
-        status: '',
-        team: '',
-        issueType: ''
-      }
+      filters: this.loadFilters()
+    }
+  },
+  mounted() {
+    // Emit initial filter state if filters were loaded from storage
+    if (this.hasPersistedFilters()) {
+      this.emitFilterChange()
     }
   },
   computed: {
@@ -128,7 +131,35 @@ export default {
     }
   },
   methods: {
+    loadFilters() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY)
+        if (saved) {
+          return JSON.parse(saved)
+        }
+      } catch (error) {
+        console.error('Failed to load filters from localStorage:', error)
+      }
+      return {
+        assignee: '',
+        status: '',
+        team: '',
+        issueType: ''
+      }
+    },
+    hasPersistedFilters() {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      return saved !== null
+    },
+    saveFilters() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.filters))
+      } catch (error) {
+        console.error('Failed to save filters to localStorage:', error)
+      }
+    },
     emitFilterChange() {
+      this.saveFilters()
       this.$emit('filter-change', { ...this.filters })
     },
     clearFilters() {
@@ -137,6 +168,11 @@ export default {
         status: '',
         team: '',
         issueType: ''
+      }
+      try {
+        localStorage.removeItem(STORAGE_KEY)
+      } catch (error) {
+        console.error('Failed to remove filters from localStorage:', error)
       }
       this.emitFilterChange()
     }
