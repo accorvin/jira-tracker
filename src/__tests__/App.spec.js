@@ -4,11 +4,29 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { ref } from 'vue'
 import App from '../App.vue'
 import KanbanBoard from '../components/KanbanBoard.vue'
 import FilterBar from '../components/FilterBar.vue'
 import ReleaseTabBar from '../components/ReleaseTabBar.vue'
 import ReleaseInfoPanel from '../components/ReleaseInfoPanel.vue'
+
+// Mock useAuth composable
+vi.mock('../composables/useAuth', () => ({
+  useAuth: () => ({
+    user: ref({
+      email: 'test@redhat.com',
+      displayName: 'Test User',
+      photoURL: null,
+      getIdToken: async () => 'mock-token'
+    }),
+    loading: ref(false),
+    error: ref(null),
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+    getIdToken: vi.fn(async () => 'mock-token')
+  })
+}))
 
 // Mock fetch
 global.fetch = vi.fn()
@@ -22,6 +40,8 @@ const localStorageMock = {
 global.localStorage = localStorageMock
 
 describe('App', () => {
+  const API_ENDPOINT = 'https://8jez4fgp80.execute-api.us-east-1.amazonaws.com/dev'
+
   const mockReleases = {
     releases: [
       {
@@ -63,25 +83,19 @@ describe('App', () => {
 
     // Set up fetch mock to handle different endpoints
     fetch.mockImplementation((url, options) => {
-      if (url === '/api/releases') {
+      if (url === `${API_ENDPOINT}/releases`) {
         return Promise.resolve({
           ok: true,
           json: async () => mockReleases
         })
       }
-      if (url === '/api/refresh') {
+      if (url === `${API_ENDPOINT}/refresh`) {
         return Promise.resolve({
           ok: true,
           json: async () => mockRefreshResponse
         })
       }
-      if (url === '/issues-rhoai-3.2.json') {
-        return Promise.resolve({
-          ok: true,
-          json: async () => mockIssues
-        })
-      }
-      if (url === '/issues.json') {
+      if (url === `${API_ENDPOINT}/issues/rhoai-3.2`) {
         return Promise.resolve({
           ok: true,
           json: async () => mockIssues
@@ -111,15 +125,15 @@ describe('App', () => {
     mount(App)
     await flushPromises()
 
-    expect(fetch).toHaveBeenCalledWith('/api/releases')
+    expect(fetch).toHaveBeenCalledWith(`${API_ENDPOINT}/releases`, expect.any(Object))
   })
 
   it('fetches issues after loading releases', async () => {
     mount(App)
     await flushPromises()
 
-    expect(fetch).toHaveBeenCalledWith('/api/releases')
-    expect(fetch).toHaveBeenCalledWith('/issues-rhoai-3.2.json')
+    expect(fetch).toHaveBeenCalledWith(`${API_ENDPOINT}/releases`, expect.any(Object))
+    expect(fetch).toHaveBeenCalledWith(`${API_ENDPOINT}/issues/rhoai-3.2`, expect.any(Object))
   })
 
   it('renders last updated timestamp when issues are loaded', async () => {
@@ -200,25 +214,19 @@ describe('App', () => {
     }
 
     fetch.mockImplementation((url) => {
-      if (url === '/api/releases') {
+      if (url === `${API_ENDPOINT}/releases`) {
         return Promise.resolve({
           ok: true,
           json: async () => mockReleases
         })
       }
-      if (url === '/api/refresh') {
+      if (url === `${API_ENDPOINT}/refresh`) {
         return Promise.resolve({
           ok: true,
           json: async () => mockRefreshResponse
         })
       }
-      if (url === '/issues-rhoai-3.2.json') {
-        return Promise.resolve({
-          ok: true,
-          json: async () => multiIssueData
-        })
-      }
-      if (url === '/issues.json') {
+      if (url === `${API_ENDPOINT}/issues/rhoai-3.2`) {
         return Promise.resolve({
           ok: true,
           json: async () => multiIssueData
@@ -249,7 +257,7 @@ describe('App', () => {
 
   it('shows modal when no releases exist', async () => {
     fetch.mockImplementation((url) => {
-      if (url === '/api/releases') {
+      if (url === `${API_ENDPOINT}/releases`) {
         return Promise.resolve({
           ok: true,
           json: async () => ({ releases: [] })
@@ -273,25 +281,19 @@ describe('App', () => {
     }
 
     fetch.mockImplementation((url) => {
-      if (url === '/api/releases') {
+      if (url === `${API_ENDPOINT}/releases`) {
         return Promise.resolve({
           ok: true,
           json: async () => multiReleaseData
         })
       }
-      if (url === '/api/refresh') {
+      if (url === `${API_ENDPOINT}/refresh`) {
         return Promise.resolve({
           ok: true,
           json: async () => mockRefreshResponse
         })
       }
-      if (url.startsWith('/issues-')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => mockIssues
-        })
-      }
-      if (url === '/issues.json') {
+      if (url.startsWith(`${API_ENDPOINT}/issues/`)) {
         return Promise.resolve({
           ok: true,
           json: async () => mockIssues
@@ -312,5 +314,152 @@ describe('App', () => {
     await flushPromises()
 
     expect(localStorageMock.setItem).toHaveBeenCalledWith('selectedRelease', 'rhoai-3.2')
+  })
+
+  it('shows loading indicator during initial data fetch', async () => {
+    let resolveIssues
+    const issuesPromise = new Promise((resolve) => {
+      resolveIssues = resolve
+    })
+
+    fetch.mockImplementation((url) => {
+      if (url === `${API_ENDPOINT}/releases`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => mockReleases
+        })
+      }
+      if (url === `${API_ENDPOINT}/issues/rhoai-3.2`) {
+        return issuesPromise.then(() => Promise.resolve({
+          ok: true,
+          json: async () => mockIssues
+        }))
+      }
+      return Promise.reject(new Error(`Unknown URL: ${url}`))
+    })
+
+    const wrapper = mount(App)
+    await flushPromises()
+
+    // Loading indicator should be visible
+    expect(wrapper.find('[data-testid="loading-overlay"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Loading')
+
+    // Resolve the fetch
+    resolveIssues()
+    await flushPromises()
+
+    // Loading indicator should be hidden
+    expect(wrapper.find('[data-testid="loading-overlay"]').exists()).toBe(false)
+  })
+
+  it('shows loading indicator when refresh button is clicked', async () => {
+    const wrapper = mount(App)
+    await flushPromises()
+
+    // Initially no loading indicator
+    expect(wrapper.find('[data-testid="loading-overlay"]').exists()).toBe(false)
+
+    // Mock a delayed refresh response
+    let resolveRefresh
+    const refreshPromise = new Promise((resolve) => {
+      resolveRefresh = resolve
+    })
+
+    fetch.mockImplementation((url) => {
+      if (url === `${API_ENDPOINT}/releases`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => mockReleases
+        })
+      }
+      if (url === `${API_ENDPOINT}/refresh`) {
+        return refreshPromise.then(() => Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, totalCount: 1, results: [] })
+        }))
+      }
+      if (url === `${API_ENDPOINT}/issues/rhoai-3.2`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => mockIssues
+        })
+      }
+      return Promise.reject(new Error(`Unknown URL: ${url}`))
+    })
+
+    // Click refresh button
+    const refreshButton = wrapper.find('button:not([class*="relative"])')
+    await refreshButton.trigger('click')
+    await wrapper.vm.$nextTick()
+
+    // Loading indicator should be visible
+    expect(wrapper.find('[data-testid="loading-overlay"]').exists()).toBe(true)
+
+    // Resolve the refresh
+    resolveRefresh()
+    await flushPromises()
+
+    // Loading indicator should be hidden
+    expect(wrapper.find('[data-testid="loading-overlay"]').exists()).toBe(false)
+  })
+
+  it('hides loading indicator after fetch error', async () => {
+    fetch.mockImplementation((url) => {
+      if (url === `${API_ENDPOINT}/releases`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => mockReleases
+        })
+      }
+      if (url === `${API_ENDPOINT}/issues/rhoai-3.2`) {
+        return Promise.reject(new Error('Network error'))
+      }
+      return Promise.reject(new Error(`Unknown URL: ${url}`))
+    })
+
+    // Mock window.alert to prevent error dialogs
+    global.alert = vi.fn()
+
+    const wrapper = mount(App)
+    await flushPromises()
+
+    // Loading indicator should be hidden even after error
+    expect(wrapper.find('[data-testid="loading-overlay"]').exists()).toBe(false)
+  })
+
+  it('loading overlay appears over the kanban board area', async () => {
+    let resolveIssues
+    const issuesPromise = new Promise((resolve) => {
+      resolveIssues = resolve
+    })
+
+    fetch.mockImplementation((url) => {
+      if (url === `${API_ENDPOINT}/releases`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => mockReleases
+        })
+      }
+      if (url === `${API_ENDPOINT}/issues/rhoai-3.2`) {
+        return issuesPromise.then(() => Promise.resolve({
+          ok: true,
+          json: async () => mockIssues
+        }))
+      }
+      return Promise.reject(new Error(`Unknown URL: ${url}`))
+    })
+
+    const wrapper = mount(App)
+    await flushPromises()
+
+    // Check that overlay has proper positioning classes
+    const overlay = wrapper.find('[data-testid="loading-overlay"]')
+    expect(overlay.exists()).toBe(true)
+    expect(overlay.classes()).toContain('absolute')
+    expect(overlay.classes()).toContain('inset-0')
+
+    resolveIssues()
+    await flushPromises()
   })
 })

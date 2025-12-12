@@ -102,7 +102,7 @@
         @delete="confirmDeleteRelease"
       />
 
-      <div class="flex-1 container mx-auto px-6 py-8">
+      <div class="flex-1 container mx-auto px-6 py-8 relative">
         <FilterBar
           v-if="allIssues.length > 0"
           :issues="allIssues"
@@ -115,6 +115,8 @@
           <p class="text-lg">No releases configured.</p>
           <p>Click "+ Add" above to add your first release.</p>
         </div>
+
+        <LoadingOverlay v-if="isLoading || isRefreshing" />
       </div>
     </main>
 
@@ -135,6 +137,7 @@ import FilterBar from './components/FilterBar.vue'
 import ReleaseTabBar from './components/ReleaseTabBar.vue'
 import ReleaseInfoPanel from './components/ReleaseInfoPanel.vue'
 import ReleaseModal from './components/ReleaseModal.vue'
+import LoadingOverlay from './components/LoadingOverlay.vue'
 import { useAuth } from './composables/useAuth'
 import { refreshIssues, getIssues, getReleases, saveReleases } from './services/api'
 
@@ -146,7 +149,8 @@ export default {
     FilterBar,
     ReleaseTabBar,
     ReleaseInfoPanel,
-    ReleaseModal
+    ReleaseModal,
+    LoadingOverlay
   },
   setup() {
     const { user: authUser, signOut } = useAuth()
@@ -161,6 +165,7 @@ export default {
       filteredIssues: [],
       lastUpdated: null,
       isRefreshing: false,
+      isLoading: false,
       filters: {
         assignee: '',
         status: '',
@@ -335,6 +340,8 @@ export default {
         return
       }
 
+      this.isLoading = true
+
       try {
         const data = await getIssues(this.selectedRelease)
 
@@ -357,6 +364,8 @@ export default {
         this.allIssues = []
         this.filteredIssues = []
         this.lastUpdated = null
+      } finally {
+        this.isLoading = false
       }
     },
 
