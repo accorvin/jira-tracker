@@ -9,6 +9,9 @@
       :class="isFlipped ? 'opacity-0 pointer-events-none' : 'opacity-100'"
       ref="cardFront"
     >
+      <!-- Hygiene Warning in top-right corner -->
+      <HygieneWarning :violations="hygieneViolations" />
+
       <div class="flex justify-between items-start mb-3">
         <a
           :href="issue.url"
@@ -19,6 +22,14 @@
         >
           {{ issue.key }}
         </a>
+      </div>
+
+      <h3 class="text-xl font-semibold text-gray-900 mb-4">
+        {{ issue.summary }}
+      </h3>
+
+      <!-- Issue type badge moved below title -->
+      <div class="mb-4">
         <span
           class="px-3 py-1 rounded-full text-sm font-medium"
           :class="issueTypeBadgeClass"
@@ -26,10 +37,6 @@
           {{ issue.issueType }}
         </span>
       </div>
-
-      <h3 class="text-xl font-semibold text-gray-900 mb-6">
-        {{ issue.summary }}
-      </h3>
 
       <div class="space-y-2 text-sm">
         <div class="flex items-center">
@@ -131,6 +138,8 @@
 
 <script>
 import DOMPurify from 'dompurify'
+import HygieneWarning from './HygieneWarning.vue'
+import { evaluateHygiene } from '../utils/hygieneRules.js'
 
 // Configure DOMPurify to add target and rel to links
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
@@ -142,6 +151,9 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
 
 export default {
   name: 'IssueCard',
+  components: {
+    HygieneWarning
+  },
   props: {
     issue: {
       type: Object,
@@ -154,6 +166,9 @@ export default {
     }
   },
   computed: {
+    hygieneViolations() {
+      return evaluateHygiene(this.issue)
+    },
     issueTypeBadgeClass() {
       return this.issue.issueType === 'Initiative'
         ? 'bg-purple-100 text-purple-800'

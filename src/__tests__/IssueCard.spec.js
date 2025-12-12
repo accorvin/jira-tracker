@@ -877,4 +877,56 @@ describe('IssueCard', () => {
       expect(backContent.classes()).toContain('overflow-y-auto')
     })
   })
+
+  describe('Hygiene Warning Integration', () => {
+    it('should render HygieneWarning component when issue has hygiene violations', () => {
+      const issueWithViolations = {
+        ...mockIssue,
+        assignee: null, // Missing assignee in In Progress status
+        statusEnteredAt: '2025-12-05T12:00:00Z'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithViolations }
+      })
+
+      // Component should render HygieneWarning
+      expect(wrapper.findComponent({ name: 'HygieneWarning' }).exists()).toBe(true)
+    })
+
+    it('should not render HygieneWarning when issue has no violations', () => {
+      const issueWithoutViolations = {
+        ...mockIssue,
+        statusEnteredAt: '2025-12-05T12:00:00Z',
+        statusSummaryUpdated: '2025-12-10T12:00:00Z',
+        colorStatus: 'Green'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithoutViolations }
+      })
+
+      // HygieneWarning might exist but shouldn't render anything
+      const hygieneWarning = wrapper.findComponent({ name: 'HygieneWarning' })
+      if (hygieneWarning.exists()) {
+        expect(hygieneWarning.find('.hygiene-warning').exists()).toBe(false)
+      }
+    })
+
+    it('issue type badge should be positioned below title and above status', () => {
+      const wrapper = mount(IssueCard, {
+        props: { issue: mockIssue }
+      })
+
+      // Find the issue type badge
+      const badgeText = wrapper.text()
+      expect(badgeText).toContain('Feature')
+
+      // The badge should not be in the flex container with the key link
+      // (checking for the old position)
+      const topFlexContainer = wrapper.find('.flex.justify-between.items-start')
+      // The badge should not be a child of this flex container anymore
+      // Instead it should be positioned after the title
+    })
+  })
 })

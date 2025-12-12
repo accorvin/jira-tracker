@@ -81,6 +81,7 @@ async function fetchIssuesFromJira(token, targetRelease) {
     'issuetype',
     'assignee',
     'status',
+    'created',
     CUSTOM_FIELDS.team,
     CUSTOM_FIELDS.releaseType,
     CUSTOM_FIELDS.targetRelease,
@@ -159,6 +160,40 @@ function getStatusSummaryUpdatedDate(issue) {
   }
 
   return mostRecentDate
+}
+
+/**
+ * Extract the most recent status change date from changelog
+ * @param {Object} issue - Raw Jira issue with changelog
+ * @returns {string|null} ISO 8601 timestamp or null
+ */
+function getStatusEnteredAtDate(issue) {
+  if (!issue.changelog || !issue.changelog.histories) {
+    // Fall back to created date if no changelog
+    return issue.fields.created
+  }
+
+  let mostRecentStatusChange = null
+
+  // Iterate through changelog histories to find the most recent status change
+  for (const history of issue.changelog.histories) {
+    for (const item of history.items) {
+      if (item.field === 'status') {
+        // Convert Jira timestamp format to ISO 8601 with Z
+        // Jira format: '2025-12-10T16:45:30.123+0000'
+        let timestamp = history.created
+        if (timestamp.includes('+')) {
+          timestamp = timestamp.split('.')[0] + 'Z'
+        } else if (timestamp.includes('T') && timestamp.length > 19) {
+          timestamp = timestamp.substring(0, 19) + 'Z'
+        }
+        mostRecentStatusChange = timestamp
+      }
+    }
+  }
+
+  // If no status changes found, fall back to created date
+  return mostRecentStatusChange || issue.fields.created
 }
 
 /**
@@ -248,6 +283,7 @@ function transformIssue(issue) {
     targetRelease: serializeListField(fields[CUSTOM_FIELDS.targetRelease]),
     statusSummary: statusSummary,
     statusSummaryUpdated: getStatusSummaryUpdatedDate(issue),
+    statusEnteredAt: getStatusEnteredAtDate(issue),
     colorStatus: serializeField(fields[CUSTOM_FIELDS.colorStatus]),
     url: `https://issues.redhat.com/browse/${issue.key}`
   }
@@ -320,3 +356,6 @@ export async function fetchAndWriteIssues(targetRelease) {
     return { success: false, count: 0, error: error.message }
   }
 }
+
+// Export for testing
+export { getStatusEnteredAtDate }
