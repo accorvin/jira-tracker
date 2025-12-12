@@ -1,5 +1,6 @@
 <template>
-  <div id="app" class="min-h-screen bg-gray-50">
+  <AuthGuard>
+    <div id="app" class="min-h-screen bg-gray-50">
     <header class="bg-primary-700 text-white shadow-lg">
       <div class="container mx-auto px-6 py-6 flex items-center justify-between">
         <div class="flex items-center gap-4">
@@ -37,6 +38,50 @@
             </svg>
             {{ isRefreshing ? 'Refreshing...' : 'Refresh' }}
           </button>
+
+          <!-- User Avatar and Sign Out -->
+          <div class="relative" v-if="authUser">
+            <button
+              @click="showUserMenu = !showUserMenu"
+              class="flex items-center gap-2 hover:bg-primary-600 rounded-full p-1 transition-colors"
+            >
+              <!-- Show initials if no photo or photo failed to load -->
+              <div
+                v-if="!authUser.photoURL || avatarLoadError"
+                class="h-10 w-10 rounded-full border-2 border-white bg-white text-primary-700 flex items-center justify-center font-bold text-sm"
+              >
+                {{ getUserInitials(authUser) }}
+              </div>
+              <!-- Try to show photo if available and hasn't failed -->
+              <img
+                v-else
+                :src="authUser.photoURL"
+                :alt="authUser.displayName || authUser.email"
+                class="h-10 w-10 rounded-full border-2 border-white"
+                @error="avatarLoadError = true"
+              />
+            </button>
+
+            <!-- Dropdown menu -->
+            <div
+              v-if="showUserMenu"
+              class="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 z-10"
+            >
+              <div class="px-4 py-2 border-b border-gray-200">
+                <p class="text-sm font-medium text-gray-900">{{ authUser.displayName }}</p>
+                <p class="text-xs text-gray-500 truncate">{{ authUser.email }}</p>
+              </div>
+              <button
+                @click="handleSignOut"
+                class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+              >
+                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Sign Out
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </header>
@@ -79,24 +124,35 @@
       @save="saveRelease"
       @cancel="closeModal"
     />
-  </div>
+    </div>
+  </AuthGuard>
 </template>
 
 <script>
+import AuthGuard from './components/AuthGuard.vue'
 import KanbanBoard from './components/KanbanBoard.vue'
 import FilterBar from './components/FilterBar.vue'
 import ReleaseTabBar from './components/ReleaseTabBar.vue'
 import ReleaseInfoPanel from './components/ReleaseInfoPanel.vue'
 import ReleaseModal from './components/ReleaseModal.vue'
+import { useAuth } from './composables/useAuth'
 
 export default {
   name: 'App',
   components: {
+    AuthGuard,
     KanbanBoard,
     FilterBar,
     ReleaseTabBar,
     ReleaseInfoPanel,
     ReleaseModal
+  },
+  setup() {
+    const { user: authUser, signOut } = useAuth()
+    return {
+      authUser,
+      signOut
+    }
   },
   data() {
     return {
@@ -114,7 +170,9 @@ export default {
       selectedRelease: null,
       showReleaseModal: false,
       editingRelease: null,
-      isInitialized: false
+      isInitialized: false,
+      showUserMenu: false,
+      avatarLoadError: false
     }
   },
   computed: {
@@ -122,11 +180,23 @@ export default {
       return this.releases.find(r => r.name === this.selectedRelease)
     }
   },
+  watch: {
+    authUser(newUser) {
+      // Reset avatar error when user changes
+      this.avatarLoadError = false
+    }
+  },
   async mounted() {
     await this.loadReleases()
     if (this.selectedRelease) {
       await this.fetchIssues()
     }
+
+    // Close user menu when clicking outside
+    document.addEventListener('click', this.handleClickOutside)
+  },
+  beforeUnmount() {
+    document.removeEventListener('click', this.handleClickOutside)
   },
   methods: {
     async loadReleases() {
@@ -328,6 +398,36 @@ export default {
       } finally {
         this.isRefreshing = false
       }
+    },
+
+    async handleSignOut() {
+      this.showUserMenu = false
+      await this.signOut()
+    },
+
+    handleClickOutside(event) {
+      const userMenu = event.target.closest('.relative')
+      if (!userMenu) {
+        this.showUserMenu = false
+      }
+    },
+
+    getUserInitials(user) {
+      if (!user) return '?'
+
+      if (user.displayName) {
+        const parts = user.displayName.split(' ')
+        if (parts.length >= 2) {
+          return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+        }
+        return user.displayName.substring(0, 2).toUpperCase()
+      }
+
+      if (user.email) {
+        return user.email.substring(0, 2).toUpperCase()
+      }
+
+      return '??'
     }
   }
 }
