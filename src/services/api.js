@@ -12,7 +12,26 @@ const API_ENDPOINT = 'https://8jez4fgp80.execute-api.us-east-1.amazonaws.com/dev
  * Get Firebase ID token for authentication
  */
 async function getAuthToken() {
-  const { getIdToken } = useAuth();
+  const { getIdToken, loading, user } = useAuth();
+
+  // Wait for auth initialization to complete
+  if (loading.value) {
+    await new Promise((resolve) => {
+      const checkLoading = setInterval(() => {
+        if (!loading.value) {
+          clearInterval(checkLoading);
+          resolve();
+        }
+      }, 50);
+
+      // Timeout after 10 seconds to prevent infinite waiting
+      setTimeout(() => {
+        clearInterval(checkLoading);
+        resolve();
+      }, 10000);
+    });
+  }
+
   try {
     return await getIdToken();
   } catch (error) {
