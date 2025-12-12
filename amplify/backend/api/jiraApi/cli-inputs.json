@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "paths": {
+    "/refresh": {
+      "name": "/refresh",
+      "lambdaFunction": "jiraFetcher",
+      "permissions": {
+        "setting": "open"
+      }
+    },
+    "/issues": {
+      "name": "/issues",
+      "lambdaFunction": "issuesReader",
+      "permissions": {
+        "setting": "open"
+      }
+    }
+  }
+}

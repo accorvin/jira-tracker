@@ -136,6 +136,7 @@ import ReleaseTabBar from './components/ReleaseTabBar.vue'
 import ReleaseInfoPanel from './components/ReleaseInfoPanel.vue'
 import ReleaseModal from './components/ReleaseModal.vue'
 import { useAuth } from './composables/useAuth'
+import { refreshIssues, getIssues } from './services/api'
 
 export default {
   name: 'App',
@@ -329,8 +330,7 @@ export default {
       }
 
       try {
-        const response = await fetch(`/issues-${this.selectedRelease}.json`)
-        const data = await response.json()
+        const data = await getIssues(this.selectedRelease)
 
         this.allIssues = data.issues
         this.filteredIssues = data.issues
@@ -338,6 +338,16 @@ export default {
         this.applyFilters()
       } catch (error) {
         console.error(`Failed to fetch issues for ${this.selectedRelease}:`, error)
+
+        // Show user-friendly error message
+        if (error.message.includes('No data found')) {
+          alert(`No data found for ${this.selectedRelease}. Click the Refresh button to fetch data from Jira.`)
+        } else if (error.message.includes('Authentication')) {
+          alert('Your session has expired. Please refresh the page and sign in again.')
+        } else {
+          alert(`Failed to load issues: ${error.message}`)
+        }
+
         this.allIssues = []
         this.filteredIssues = []
         this.lastUpdated = null
@@ -378,23 +388,28 @@ export default {
       this.isRefreshing = true
 
       try {
-        const response = await fetch('/api/refresh', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        })
-
-        const result = await response.json()
+        const result = await refreshIssues(this.releases)
 
         if (result.success) {
           await this.fetchIssues()
           console.log(`Refreshed ${result.totalCount} issues across ${result.results.length} releases`)
+          alert(`Successfully refreshed ${result.totalCount} issues!`)
         } else {
-          console.error('Refresh failed:', result.error)
-          alert(`Failed to refresh: ${result.error}`)
+          const failedReleases = result.results.filter(r => r.error)
+          if (failedReleases.length > 0) {
+            console.error('Some releases failed:', failedReleases)
+            alert(`Partially successful. Failed releases: ${failedReleases.map(r => r.release).join(', ')}`)
+          }
+          await this.fetchIssues()
         }
       } catch (error) {
         console.error('Refresh error:', error)
-        alert(`Failed to refresh: ${error.message}`)
+
+        if (error.message.includes('Authentication')) {
+          alert('Your session has expired. Please refresh the page and sign in again.')
+        } else {
+          alert(`Failed to refresh: ${error.message}`)
+        }
       } finally {
         this.isRefreshing = false
       }

@@ -1,0 +1,30 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-jiratrackerapp-dev-3b596-authRole",
+      "UnauthRoleArn": "arn:aws:iam::585132637328:role/amplify-jiratrackerapp-dev-3b596-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::585132637328:role/amplify-jiratrackerapp-dev-3b596-authRole",
+      "Region": "us-east-1",
+      "DeploymentBucketName": "amplify-jiratrackerapp-dev-3b596-deployment",
+      "UnauthRoleName": "amplify-jiratrackerapp-dev-3b596-unauthRole",
+      "StackName": "amplify-jiratrackerapp-dev-3b596",
+      "StackId": "arn:aws:cloudformation:us-east-1:585132637328:stack/amplify-jiratrackerapp-dev-3b596/455982a0-d78d-11f0-880d-0e5d9c0c88f5",
+      "AmplifyAppId": "db8qbfhkw24dz"
+    },
+    "categories": {
+      "function": {
+        "jiraFetcher": {
+          "deploymentBucketName": "amplify-jiratrackerapp-dev-3b596-deployment",
+          "s3Key": "amplify-builds/jiraFetcher-54315975376e66645431-build.zip"
+        },
+        "issuesReader": {
+          "deploymentBucketName": "amplify-jiratrackerapp-dev-3b596-deployment",
+          "s3Key": "amplify-builds/issuesReader-53716953795530783676-build.zip"
+        }
+      },
+      "api": {
+        "jiraApi": {}
+      }
+    }
+  }
+}
