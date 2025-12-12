@@ -136,7 +136,7 @@ import ReleaseTabBar from './components/ReleaseTabBar.vue'
 import ReleaseInfoPanel from './components/ReleaseInfoPanel.vue'
 import ReleaseModal from './components/ReleaseModal.vue'
 import { useAuth } from './composables/useAuth'
-import { refreshIssues, getIssues } from './services/api'
+import { refreshIssues, getIssues, getReleases, saveReleases } from './services/api'
 
 export default {
   name: 'App',
@@ -202,8 +202,7 @@ export default {
   methods: {
     async loadReleases() {
       try {
-        const response = await fetch('/api/releases')
-        const data = await response.json()
+        const data = await getReleases()
         this.releases = data.releases || []
 
         if (this.releases.length === 0) {
@@ -218,8 +217,14 @@ export default {
         }
       } catch (error) {
         console.error('Failed to load releases:', error)
-        this.releases = []
-        this.showReleaseModal = true
+
+        if (error.message.includes('Authentication')) {
+          // Don't show modal on auth error - user will see auth screen
+          this.releases = []
+        } else {
+          this.releases = []
+          this.showReleaseModal = true
+        }
       }
       this.isInitialized = true
     },
@@ -257,14 +262,15 @@ export default {
       }
 
       try {
-        await fetch('/api/releases', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ releases: this.releases })
-        })
+        await saveReleases(this.releases)
       } catch (error) {
         console.error('Failed to save releases:', error)
-        alert('Failed to save release configuration')
+
+        if (error.message.includes('Authentication')) {
+          alert('Your session has expired. Please refresh the page and sign in again.')
+        } else {
+          alert('Failed to save release configuration')
+        }
       }
 
       this.showReleaseModal = false
@@ -286,13 +292,13 @@ export default {
       }
 
       try {
-        await fetch('/api/releases', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ releases: this.releases })
-        })
+        await saveReleases(this.releases)
       } catch (error) {
         console.error('Failed to save releases:', error)
+
+        if (error.message.includes('Authentication')) {
+          alert('Your session has expired. Please refresh the page and sign in again.')
+        }
       }
 
       if (this.releases.length > 0) {

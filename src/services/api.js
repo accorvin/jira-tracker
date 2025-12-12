@@ -92,3 +92,70 @@ export async function getIssues(releaseName) {
     throw error;
   }
 }
+
+/**
+ * Get list of releases from S3
+ * @returns {Promise<{releases: Array}>}
+ */
+export async function getReleases() {
+  try {
+    const token = await getAuthToken();
+
+    const response = await fetch(`${API_ENDPOINT}/releases`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+
+      if (response.status === 401) {
+        throw new Error('Authentication failed. Please sign in again.');
+      }
+
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Get releases error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Save list of releases to S3
+ * @param {Array<{name: string}>} releases - Array of release objects
+ * @returns {Promise<{success: boolean, releases: Array}>}
+ */
+export async function saveReleases(releases) {
+  try {
+    const token = await getAuthToken();
+
+    const response = await fetch(`${API_ENDPOINT}/releases`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ releases })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+
+      if (response.status === 401) {
+        throw new Error('Authentication failed. Please sign in again.');
+      }
+
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Save releases error:', error);
+    throw error;
+  }
+}

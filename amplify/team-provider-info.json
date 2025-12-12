@@ -19,7 +19,7 @@
         },
         "issuesReader": {
           "deploymentBucketName": "amplify-jiratrackerapp-dev-3b596-deployment",
-          "s3Key": "amplify-builds/issuesReader-53716953795530783676-build.zip"
+          "s3Key": "amplify-builds/issuesReader-37786650425771422f35-build.zip"
         }
       },
       "api": {

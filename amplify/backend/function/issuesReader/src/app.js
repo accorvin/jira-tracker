@@ -7,7 +7,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const awsServerlessExpressMiddleware = require('aws-serverless-express/middleware');
-const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { verifyFirebaseToken } = require('./verifyToken');
 
 const app = express();
@@ -58,10 +58,28 @@ async function readFromS3(key) {
     return JSON.parse(bodyContents);
   } catch (error) {
     if (error.name === 'NoSuchKey') {
-      throw new Error(`Issues file not found: ${key}. Please refresh data first.`);
+      return null; // File doesn't exist
     }
     throw error;
   }
+}
+
+/**
+ * Write JSON to S3
+ */
+async function writeToS3(key, data) {
+  if (!S3_BUCKET) {
+    throw new Error('S3_BUCKET environment variable is not set');
+  }
+
+  const command = new PutObjectCommand({
+    Bucket: S3_BUCKET,
+    Key: key,
+    Body: JSON.stringify(data, null, 2),
+    ContentType: 'application/json'
+  });
+
+  await s3Client.send(command);
 }
 
 /**
@@ -142,12 +160,89 @@ app.get('/issues', async function(req, res) {
   }
 });
 
+/**
+ * GET /releases - Get list of releases
+ */
+app.get('/releases', async function(req, res) {
+  try {
+    // Verify Firebase token
+    const authHeader = req.headers.authorization;
+    const verification = await verifyFirebaseToken(authHeader);
+
+    if (!verification.valid) {
+      return res.status(401).json({
+        error: verification.error
+      });
+    }
+
+    console.log(`Reading releases (user: ${verification.email})`);
+
+    // Read from S3
+    const data = await readFromS3('releases.json');
+
+    // If file doesn't exist, return empty array
+    if (!data) {
+      return res.json({ releases: [] });
+    }
+
+    res.json(data);
+
+  } catch (error) {
+    console.error('Read releases error:', error);
+    res.status(500).json({
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /releases - Save list of releases
+ */
+app.post('/releases', async function(req, res) {
+  try {
+    // Verify Firebase token
+    const authHeader = req.headers.authorization;
+    const verification = await verifyFirebaseToken(authHeader);
+
+    if (!verification.valid) {
+      return res.status(401).json({
+        error: verification.error
+      });
+    }
+
+    const { releases } = req.body;
+
+    if (!releases || !Array.isArray(releases)) {
+      return res.status(400).json({
+        error: 'Request must include "releases" array'
+      });
+    }
+
+    console.log(`Saving ${releases.length} releases (user: ${verification.email})`);
+
+    // Write to S3
+    await writeToS3('releases.json', { releases });
+
+    res.json({ success: true, releases });
+
+  } catch (error) {
+    console.error('Save releases error:', error);
+    res.status(500).json({
+      error: error.message
+    });
+  }
+});
+
 // Handle OPTIONS for CORS preflight
 app.options('/issues', function(req, res) {
   res.status(200).end();
 });
 
 app.options('/issues/*', function(req, res) {
+  res.status(200).end();
+});
+
+app.options('/releases', function(req, res) {
   res.status(200).end();
 });
 
