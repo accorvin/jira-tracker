@@ -75,6 +75,12 @@ describe('App', () => {
           json: async () => mockRefreshResponse
         })
       }
+      if (url === '/issues-rhoai-3.2.json') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => mockIssues
+        })
+      }
       if (url === '/issues.json') {
         return Promise.resolve({
           ok: true,
@@ -112,11 +118,8 @@ describe('App', () => {
     mount(App)
     await flushPromises()
 
-    expect(fetch).toHaveBeenCalledWith('/api/refresh', expect.objectContaining({
-      method: 'POST',
-      body: JSON.stringify({ targetRelease: 'rhoai-3.2' })
-    }))
-    expect(fetch).toHaveBeenCalledWith('/issues.json')
+    expect(fetch).toHaveBeenCalledWith('/api/releases')
+    expect(fetch).toHaveBeenCalledWith('/issues-rhoai-3.2.json')
   })
 
   it('renders last updated timestamp when issues are loaded', async () => {
@@ -209,6 +212,12 @@ describe('App', () => {
           json: async () => mockRefreshResponse
         })
       }
+      if (url === '/issues-rhoai-3.2.json') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => multiIssueData
+        })
+      }
       if (url === '/issues.json') {
         return Promise.resolve({
           ok: true,
@@ -274,6 +283,12 @@ describe('App', () => {
         return Promise.resolve({
           ok: true,
           json: async () => mockRefreshResponse
+        })
+      }
+      if (url.startsWith('/issues-')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => mockIssues
         })
       }
       if (url === '/issues.json') {

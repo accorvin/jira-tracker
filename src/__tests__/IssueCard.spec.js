@@ -403,8 +403,9 @@ describe('IssueCard', () => {
       })
 
       const ageField = wrapper.find('.field-status-age .field-value')
-      expect(ageField.classes()).toContain('bg-red-100')
-      expect(ageField.classes()).toContain('text-red-900')
+      // 9 days falls in the 7-14 day range, which gets yellow styling
+      expect(ageField.classes()).toContain('bg-yellow-400')
+      expect(ageField.classes()).toContain('text-gray-900')
     })
 
     it('applies warning styling when age > 7 days and status is "Refinement"', () => {
@@ -419,8 +420,9 @@ describe('IssueCard', () => {
       })
 
       const ageField = wrapper.find('.field-status-age .field-value')
-      expect(ageField.classes()).toContain('bg-red-100')
-      expect(ageField.classes()).toContain('text-red-900')
+      // 9 days falls in the 7-14 day range, which gets yellow styling
+      expect(ageField.classes()).toContain('bg-yellow-400')
+      expect(ageField.classes()).toContain('text-gray-900')
     })
 
     it('does not apply warning styling when age > 7 days but status is "New"', () => {
