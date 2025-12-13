@@ -1,7 +1,7 @@
 <template>
   <div
     data-testid="loading-overlay"
-    class="absolute inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50"
+    class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50"
   >
     <div class="bg-white rounded-lg p-8 flex flex-col items-center gap-4 shadow-xl">
       <svg
