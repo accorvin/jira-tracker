@@ -6,7 +6,7 @@
         <select
           v-model="filters.assignee"
           @change="emitFilterChange"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+          class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none"
         >
           <option value="">All</option>
           <option v-for="assignee in assigneeOptions" :key="assignee" :value="assignee">
@@ -20,7 +20,7 @@
         <select
           v-model="filters.status"
           @change="emitFilterChange"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+          class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none"
         >
           <option value="">All</option>
           <option v-for="status in statusOptions" :key="status" :value="status">
@@ -34,7 +34,7 @@
         <select
           v-model="filters.team"
           @change="emitFilterChange"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+          class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none"
         >
           <option value="">All</option>
           <option v-for="team in teamOptions" :key="team" :value="team">
@@ -48,7 +48,7 @@
         <select
           v-model="filters.issueType"
           @change="emitFilterChange"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+          class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none"
         >
           <option value="">All</option>
           <option v-for="type in issueTypeOptions" :key="type" :value="type">
@@ -60,7 +60,7 @@
       <div>
         <button
           @click="clearFilters"
-          class="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium rounded-md transition-colors"
+          class="w-full px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium rounded-md transition-colors border border-blue-200"
         >
           Clear Filters
         </button>
