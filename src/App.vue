@@ -126,6 +126,15 @@
       @save="saveRelease"
       @cancel="closeModal"
     />
+
+    <Toast
+      v-for="toast in toasts"
+      :key="toast.id"
+      :message="toast.message"
+      :type="toast.type"
+      :duration="toast.duration"
+      @close="removeToast(toast.id)"
+    />
     </div>
   </AuthGuard>
 </template>
@@ -138,6 +147,7 @@ import ReleaseTabBar from './components/ReleaseTabBar.vue'
 import ReleaseInfoPanel from './components/ReleaseInfoPanel.vue'
 import ReleaseModal from './components/ReleaseModal.vue'
 import LoadingOverlay from './components/LoadingOverlay.vue'
+import Toast from './components/Toast.vue'
 import { useAuth } from './composables/useAuth'
 import { refreshIssues, getIssues, getReleases, saveReleases } from './services/api'
 
@@ -150,7 +160,8 @@ export default {
     ReleaseTabBar,
     ReleaseInfoPanel,
     ReleaseModal,
-    LoadingOverlay
+    LoadingOverlay,
+    Toast
   },
   setup() {
     const { user: authUser, signOut } = useAuth()
@@ -178,7 +189,8 @@ export default {
       editingRelease: null,
       isInitialized: false,
       showUserMenu: false,
-      avatarLoadError: false
+      avatarLoadError: false,
+      toasts: []
     }
   },
   computed: {
@@ -412,7 +424,7 @@ export default {
         if (result.success) {
           await this.fetchIssues()
           console.log(`Refreshed ${result.totalCount} issues across ${result.results.length} releases`)
-          alert(`Successfully refreshed ${result.totalCount} issues!`)
+          this.showToast(`Successfully refreshed ${result.totalCount} issues!`)
         } else {
           const failedReleases = result.results.filter(r => r.error)
           if (failedReleases.length > 0) {
@@ -444,6 +456,15 @@ export default {
       if (!userMenu) {
         this.showUserMenu = false
       }
+    },
+
+    showToast(message, type = 'success', duration = 3000) {
+      const id = Date.now()
+      this.toasts.push({ id, message, type, duration })
+    },
+
+    removeToast(id) {
+      this.toasts = this.toasts.filter(t => t.id !== id)
     },
 
     getUserInitials(user) {
