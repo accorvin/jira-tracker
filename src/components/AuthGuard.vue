@@ -67,26 +67,11 @@
 
 <script>
 import { useAuth } from '../composables/useAuth'
-import { onMounted } from 'vue'
 
 export default {
   name: 'AuthGuard',
   setup() {
     const { user, loading, error, signIn } = useAuth()
-
-    // Auto-trigger sign-in when component mounts and user is not authenticated
-    onMounted(() => {
-      // Wait for initial auth check to complete
-      const checkAuth = setInterval(() => {
-        if (!loading.value && !user.value && !error.value) {
-          signIn()
-          clearInterval(checkAuth)
-        }
-      }, 100)
-
-      // Cleanup after 5 seconds to avoid infinite loop
-      setTimeout(() => clearInterval(checkAuth), 5000)
-    })
 
     return {
       user,

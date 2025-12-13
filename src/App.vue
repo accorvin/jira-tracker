@@ -187,17 +187,21 @@ export default {
     }
   },
   watch: {
-    authUser(newUser) {
+    authUser(newUser, oldUser) {
       // Reset avatar error when user changes
       this.avatarLoadError = false
+
+      // Load data when user becomes authenticated
+      if (newUser && !oldUser) {
+        this.loadReleases().then(() => {
+          if (this.selectedRelease) {
+            this.fetchIssues()
+          }
+        })
+      }
     }
   },
-  async mounted() {
-    await this.loadReleases()
-    if (this.selectedRelease) {
-      await this.fetchIssues()
-    }
-
+  mounted() {
     // Close user menu when clicking outside
     document.addEventListener('click', this.handleClickOutside)
   },
