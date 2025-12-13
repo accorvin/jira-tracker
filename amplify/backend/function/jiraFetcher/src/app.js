@@ -7,7 +7,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const awsServerlessExpressMiddleware = require('aws-serverless-express/middleware');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const fetch = require('node-fetch');
 const { verifyFirebaseToken } = require('./verifyToken');
 
@@ -282,6 +282,84 @@ async function uploadToS3(key, data) {
 }
 
 /**
+ * Convert stream to string
+ */
+async function streamToString(stream) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    stream.on('data', (chunk) => chunks.push(chunk));
+    stream.on('error', reject);
+    stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+  });
+}
+
+/**
+ * Read JSON from S3
+ */
+async function readFromS3(key) {
+  if (!S3_BUCKET) {
+    throw new Error('S3_BUCKET environment variable is not set');
+  }
+
+  try {
+    const command = new GetObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: key
+    });
+
+    const response = await s3Client.send(command);
+    const bodyContents = await streamToString(response.Body);
+    return JSON.parse(bodyContents);
+  } catch (error) {
+    console.error(`Error reading ${key} from S3:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Refresh all releases - shared logic for manual and scheduled refreshes
+ */
+async function refreshAllReleases(releases) {
+  const results = [];
+
+  for (const release of releases) {
+    console.log(`Fetching issues for ${release.name}...`);
+
+    try {
+      const rawIssues = await fetchIssuesFromJira(release.name);
+      const transformedIssues = rawIssues.map(transformIssue);
+
+      const output = {
+        lastUpdated: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+        issues: transformedIssues
+      };
+
+      const s3Key = `issues-${release.name}.json`;
+      await uploadToS3(s3Key, output);
+
+      console.log(`Uploaded ${transformedIssues.length} issues for ${release.name}`);
+
+      results.push({
+        release: release.name,
+        count: transformedIssues.length
+      });
+    } catch (error) {
+      console.error(`Error fetching ${release.name}:`, error);
+      results.push({
+        release: release.name,
+        count: 0,
+        error: error.message
+      });
+    }
+  }
+
+  const allSucceeded = results.every(r => !r.error);
+  const totalCount = results.reduce((sum, r) => sum + r.count, 0);
+
+  return { success: allSucceeded, results, totalCount };
+}
+
+/**
  * POST /refresh - Fetch issues and upload to S3
  */
 app.post('/refresh', async function(req, res) {
@@ -308,49 +386,9 @@ app.post('/refresh', async function(req, res) {
       });
     }
 
-    // Fetch and upload issues for each release
-    const results = [];
-
-    for (const release of releases) {
-      console.log(`Fetching issues for ${release.name}...`);
-
-      try {
-        const rawIssues = await fetchIssuesFromJira(release.name);
-        const transformedIssues = rawIssues.map(transformIssue);
-
-        const output = {
-          lastUpdated: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
-          issues: transformedIssues
-        };
-
-        // Upload to S3
-        const s3Key = `issues-${release.name}.json`;
-        await uploadToS3(s3Key, output);
-
-        console.log(`Uploaded ${transformedIssues.length} issues for ${release.name}`);
-
-        results.push({
-          release: release.name,
-          count: transformedIssues.length
-        });
-      } catch (error) {
-        console.error(`Error fetching ${release.name}:`, error);
-        results.push({
-          release: release.name,
-          count: 0,
-          error: error.message
-        });
-      }
-    }
-
-    const allSucceeded = results.every(r => !r.error);
-    const totalCount = results.reduce((sum, r) => sum + r.count, 0);
-
-    res.json({
-      success: allSucceeded,
-      results,
-      totalCount
-    });
+    // Use shared refresh logic
+    const result = await refreshAllReleases(releases);
+    res.json(result);
 
   } catch (error) {
     console.error('Refresh error:', error);
@@ -371,3 +409,5 @@ app.listen(3000, function() {
 });
 
 module.exports = app;
+module.exports.readFromS3 = readFromS3;
+module.exports.refreshAllReleases = refreshAllReleases;
