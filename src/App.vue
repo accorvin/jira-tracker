@@ -358,6 +358,10 @@ export default {
 
       this.isLoading = true
 
+      // Give Vue a chance to render the loading overlay before starting heavy work
+      await this.$nextTick()
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+
       try {
         const data = await getIssues(this.selectedRelease)
 

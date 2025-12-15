@@ -15,7 +15,7 @@
       "function": {
         "jiraFetcher": {
           "deploymentBucketName": "amplify-jiratrackerapp-dev-3b596-deployment",
-          "s3Key": "amplify-builds/jiraFetcher-4853476230784a756d74-build.zip"
+          "s3Key": "amplify-builds/jiraFetcher-516576446362576d596c-build.zip"
         },
         "issuesReader": {
           "deploymentBucketName": "amplify-jiratrackerapp-dev-3b596-deployment",

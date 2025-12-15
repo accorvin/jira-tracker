@@ -18,7 +18,8 @@ async function handleScheduledRefresh(event, context) {
     // Read releases.json from S3
     let releases;
     try {
-      releases = await readFromS3('releases.json');
+      const data = await readFromS3('releases.json');
+      releases = data.releases;
     } catch (error) {
       console.log('No releases.json found in S3 or error reading it, skipping refresh');
       return {
@@ -27,7 +28,7 @@ async function handleScheduledRefresh(event, context) {
       };
     }
 
-    if (!releases || releases.length === 0) {
+    if (!releases || !Array.isArray(releases) || releases.length === 0) {
       console.log('No releases found in S3, skipping refresh');
       return {
         statusCode: 200,
