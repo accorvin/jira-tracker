@@ -65,7 +65,7 @@ Always use human-readable names in the UI and JSON:
 
 ### Jira Configuration
 - Host: `https://issues.redhat.com`
-- Token file: `~/.jira-token`
+- Token: Stored in AWS SSM Parameter Store at `/jira-tracker-app/dev/jira-token`
 - Issue URL pattern: `https://issues.redhat.com/browse/{KEY}`
 
 ### Filters

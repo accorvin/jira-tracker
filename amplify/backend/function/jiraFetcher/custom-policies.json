@@ -7,5 +7,13 @@
     "Resource": [
       "arn:aws:s3:::jira-tracker-*/*"
     ]
+  },
+  {
+    "Action": [
+      "ssm:GetParameter"
+    ],
+    "Resource": [
+      "arn:aws:ssm:us-east-1:585132637328:parameter/jira-tracker-app/*/jira-token"
+    ]
   }
 ]

@@ -8,6 +8,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const awsServerlessExpressMiddleware = require('aws-serverless-express/middleware');
 const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { SSMClient, GetParameterCommand } = require('@aws-sdk/client-ssm');
 const fetch = require('node-fetch');
 const { verifyFirebaseToken } = require('./verifyToken');
 
@@ -23,15 +24,47 @@ app.use(function(req, res, next) {
   next();
 });
 
-// S3 Client
-const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
+// AWS Clients
+const AWS_REGION = process.env.AWS_REGION || process.env.REGION || 'us-east-1';
+const s3Client = new S3Client({ region: AWS_REGION });
+const ssmClient = new SSMClient({ region: AWS_REGION });
 
 /**
  * Configuration constants
  */
 const JIRA_HOST = process.env.JIRA_HOST || 'https://issues.redhat.com';
-const JIRA_TOKEN = process.env.JIRA_TOKEN;
 const S3_BUCKET = process.env.S3_BUCKET;
+
+// Cache for JIRA_TOKEN (fetched from SSM)
+let JIRA_TOKEN = null;
+
+/**
+ * Fetch JIRA token from SSM Parameter Store
+ */
+async function getJiraToken() {
+  if (JIRA_TOKEN) {
+    return JIRA_TOKEN;
+  }
+
+  const parameterName = process.env.JIRA_TOKEN_PARAMETER_NAME;
+  if (!parameterName) {
+    throw new Error('JIRA_TOKEN_PARAMETER_NAME environment variable is not set');
+  }
+
+  try {
+    const command = new GetParameterCommand({
+      Name: parameterName,
+      WithDecryption: true
+    });
+    const response = await ssmClient.send(command);
+    JIRA_TOKEN = response.Parameter.Value;
+    console.log('Successfully fetched Jira token from SSM Parameter Store');
+    return JIRA_TOKEN;
+  } catch (error) {
+    console.error('Error fetching Jira token from SSM:', error);
+    throw new Error(`Failed to fetch Jira token from SSM: ${error.message}`);
+  }
+}
 const PROJECTS = ['RHAISTRAT', 'RHOAIENG'];
 const COMPONENTS = [
   'Fine Tuning',
@@ -67,9 +100,7 @@ function buildJqlQuery(targetRelease) {
  * Fetch issues from Jira with pagination
  */
 async function fetchIssuesFromJira(targetRelease) {
-  if (!JIRA_TOKEN) {
-    throw new Error('JIRA_TOKEN environment variable is not set');
-  }
+  const jiraToken = await getJiraToken();
 
   const jql = buildJqlQuery(targetRelease);
   const fields = [
@@ -95,7 +126,7 @@ async function fetchIssuesFromJira(targetRelease) {
 
     const response = await fetch(url.toString(), {
       headers: {
-        'Authorization': `Bearer ${JIRA_TOKEN}`,
+        'Authorization': `Bearer ${jiraToken}`,
         'Accept': 'application/json'
       }
     });

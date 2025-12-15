@@ -70,13 +70,25 @@ npm install
 amplify pull --appId YOUR_APP_ID --envName dev
 ```
 
-4. Configure Lambda environment variables (AWS Console):
-   - Navigate to Lambda → Your Functions
-   - Set environment variables:
-     - `JIRA_TOKEN`: Your Jira API token
-     - `JIRA_HOST`: `https://issues.redhat.com`
-     - `S3_BUCKET`: `jira-tracker-issues-dev`
-     - `FIREBASE_PROJECT_ID`: Your Firebase project ID
+4. Create SSM Parameter for Jira token:
+```bash
+aws ssm put-parameter \
+  --name "/jira-tracker-app/dev/jira-token" \
+  --description "Jira API token for jira-tracker-app dev environment" \
+  --value "YOUR_JIRA_TOKEN" \
+  --type "SecureString" \
+  --region us-east-1
+```
+
+5. Configure non-sensitive parameters in `amplify/backend/function/jiraFetcher/parameters.json`:
+   - `jiraHost`: `https://issues.redhat.com`
+   - `s3Bucket`: `jira-tracker-issues-dev`
+   - `firebaseProjectId`: Your Firebase project ID
+
+6. Deploy the backend:
+```bash
+amplify push
+```
 
 ### Running the Application
 
@@ -174,9 +186,10 @@ The kanban board maps Jira statuses to columns:
 
 - **Authentication**: Firebase Auth with @redhat.com domain restriction
 - **Authorization**: Lambda functions verify Firebase ID tokens on every request
-- **Secrets**: Jira token stored in Lambda environment variables (never exposed to client)
+- **Secrets**: Jira token stored in AWS Systems Manager Parameter Store (SecureString) with KMS encryption
 - **Network**: HTTPS enforced on all endpoints
 - **Storage**: S3 bucket accessed only by authenticated Lambda functions
+- **Least Privilege**: Lambda execution role has minimal IAM permissions (S3, SSM Parameter Store)
 
 ## API Endpoints
 
@@ -234,8 +247,9 @@ Get issues for a specific release from S3.
 
 ### Refresh Button Not Working
 - Check AWS CloudWatch Logs for Lambda errors
-- Verify `JIRA_TOKEN` environment variable is set in Lambda
-- Ensure Lambda has S3 permissions
+- Verify SSM parameter `/jira-tracker-app/dev/jira-token` exists and contains valid token
+- Ensure Lambda has SSM and S3 permissions
+- Look for "Successfully fetched Jira token from SSM Parameter Store" in CloudWatch logs
 
 ### No Data Displaying
 - Click the Refresh button first to populate S3

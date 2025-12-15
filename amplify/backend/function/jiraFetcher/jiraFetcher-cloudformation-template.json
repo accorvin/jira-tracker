@@ -20,11 +20,6 @@
       "Type": "String",
       "Description": "Jira host URL"
     },
-    "jiraToken": {
-      "Type": "String",
-      "Description": "Jira API token",
-      "NoEcho": true
-    },
     "s3Bucket": {
       "Type": "String",
       "Description": "S3 bucket for storing issues"
@@ -32,6 +27,11 @@
     "firebaseProjectId": {
       "Type": "String",
       "Description": "Firebase project ID"
+    },
+    "jiraTokenParameterName": {
+      "Type": "String",
+      "Description": "SSM Parameter Store path for Jira API token",
+      "Default": "/jira-tracker-app/dev/jira-token"
     }
   },
   "Conditions": {
@@ -102,8 +102,8 @@
             "JIRA_HOST": {
               "Ref": "jiraHost"
             },
-            "JIRA_TOKEN": {
-              "Ref": "jiraToken"
+            "JIRA_TOKEN_PARAMETER_NAME": {
+              "Ref": "jiraTokenParameterName"
             },
             "S3_BUCKET": {
               "Ref": "s3Bucket"
@@ -259,6 +259,15 @@
               ],
               "Resource": [
                 "arn:aws:s3:::jira-tracker-*/*"
+              ],
+              "Effect": "Allow"
+            },
+            {
+              "Action": [
+                "ssm:GetParameter"
+              ],
+              "Resource": [
+                "arn:aws:ssm:us-east-1:585132637328:parameter/jira-tracker-app/*/jira-token"
               ],
               "Effect": "Allow"
             }
