@@ -15,6 +15,23 @@
     },
     "s3Key": {
       "Type": "String"
+    },
+    "jiraHost": {
+      "Type": "String",
+      "Description": "Jira host URL"
+    },
+    "jiraToken": {
+      "Type": "String",
+      "Description": "Jira API token",
+      "NoEcho": true
+    },
+    "s3Bucket": {
+      "Type": "String",
+      "Description": "S3 bucket for storing issues"
+    },
+    "firebaseProjectId": {
+      "Type": "String",
+      "Description": "Firebase project ID"
     }
   },
   "Conditions": {
@@ -81,6 +98,18 @@
             },
             "REGION": {
               "Ref": "AWS::Region"
+            },
+            "JIRA_HOST": {
+              "Ref": "jiraHost"
+            },
+            "JIRA_TOKEN": {
+              "Ref": "jiraToken"
+            },
+            "S3_BUCKET": {
+              "Ref": "s3Bucket"
+            },
+            "FIREBASE_PROJECT_ID": {
+              "Ref": "firebaseProjectId"
             }
           }
         },

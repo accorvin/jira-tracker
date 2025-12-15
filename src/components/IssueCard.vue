@@ -5,7 +5,7 @@
   >
     <!-- Front of card - always rendered, controls card height -->
     <div
-      class="card-front p-6 pb-12 transition-opacity duration-300"
+      class="card-front p-6 pb-20 transition-opacity duration-300"
       :class="isFlipped ? 'opacity-0 pointer-events-none' : 'opacity-100'"
       ref="cardFront"
     >
@@ -110,11 +110,9 @@
         </div>
       </div>
 
-      <!-- Info icon badge -->
-      <div class="absolute bottom-4 right-4 text-primary-500 opacity-60 pointer-events-none">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-        </svg>
+      <!-- Click for details badge -->
+      <div class="absolute bottom-4 right-4 bg-primary-50 text-primary-700 px-3 py-2 rounded-lg pointer-events-none border border-primary-200 shadow-sm">
+        <span class="text-xs font-medium whitespace-nowrap">Click for details</span>
       </div>
     </div>
 
@@ -314,6 +312,20 @@ export default {
 </script>
 
 <style scoped>
+/* Slow spin animation for flip icon */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}
+
 .flip-enter-active,
 .flip-leave-active {
   transition: opacity 0.3s ease, transform 0.3s ease;
