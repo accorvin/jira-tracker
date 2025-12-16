@@ -178,3 +178,39 @@ export async function saveReleases(releases) {
     throw error;
   }
 }
+
+/**
+ * Get intake features from S3
+ * @returns {Promise<{lastUpdated: string, features: Array}>}
+ */
+export async function getIntakeFeatures() {
+  try {
+    const token = await getAuthToken();
+
+    const response = await fetch(`${API_ENDPOINT}/intake`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+
+      if (response.status === 401) {
+        throw new Error('Authentication failed. Please sign in again.');
+      }
+
+      if (response.status === 500 && errorData.error?.includes('not found')) {
+        throw new Error('No intake data found. Please refresh to fetch data from Jira.');
+      }
+
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Get intake features error:', error);
+    throw error;
+  }
+}
