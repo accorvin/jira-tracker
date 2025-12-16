@@ -318,7 +318,8 @@ describe('Hygiene Rules Engine', () => {
         statusSummaryUpdated: '2025-12-10T12:00:00Z', // 1 day ago
         statusEnteredAt: '2025-12-05T12:00:00Z',
         colorStatus: 'Green',
-        releaseType: 'GA'
+        releaseType: 'GA',
+        linkedRfeApproved: true
       }
 
       const violations = evaluateHygiene(issue)
@@ -335,7 +336,8 @@ describe('Hygiene Rules Engine', () => {
         statusSummaryUpdated: '2025-12-10T12:00:00Z',
         statusEnteredAt: '2025-12-05T12:00:00Z',
         colorStatus: 'Green',
-        releaseType: 'GA'
+        releaseType: 'GA',
+        linkedRfeApproved: true
       }
 
       const violations = evaluateHygiene(issue)
