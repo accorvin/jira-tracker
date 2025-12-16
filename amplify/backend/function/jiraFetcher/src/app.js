@@ -362,7 +362,7 @@ async function fetchApprovedRfes() {
   const jiraToken = await getJiraToken();
   const jql = buildRfeJqlQuery();
 
-  const fields = ['key', 'summary', 'status', 'components'].join(',');
+  const fields = ['key', 'summary', 'status', 'components', 'reporter', 'assignee'].join(',');
   const rfes = [];
   let startAt = 0;
   const maxResults = 100;
@@ -401,7 +401,9 @@ async function fetchApprovedRfes() {
       key: rfe.key,
       title: rfe.fields.summary,
       approvalDate: getApprovalDateFromChangelog(rfe),
-      status: rfe.fields.status?.name
+      status: rfe.fields.status?.name,
+      reporter: rfe.fields.reporter?.displayName || null,
+      assignee: rfe.fields.assignee?.displayName || null
     };
   }
 

@@ -1,26 +1,43 @@
 <template>
   <main class="container mx-auto px-6 py-8">
     <!-- Filters -->
-    <div class="mb-6 flex gap-4">
-      <select
-        v-model="teamFilter"
-        class="px-4 py-2 border border-gray-300 rounded-md bg-white text-sm"
-      >
-        <option value="">All Teams</option>
-        <option v-for="team in availableTeams" :key="team" :value="team">
-          {{ team }}
-        </option>
-      </select>
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Team</label>
+          <select
+            v-model="teamFilter"
+            class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none"
+          >
+            <option value="">All</option>
+            <option v-for="team in availableTeams" :key="team" :value="team">
+              {{ team }}
+            </option>
+          </select>
+        </div>
 
-      <select
-        v-model="componentFilter"
-        class="px-4 py-2 border border-gray-300 rounded-md bg-white text-sm"
-      >
-        <option value="">All Components</option>
-        <option v-for="comp in availableComponents" :key="comp" :value="comp">
-          {{ comp }}
-        </option>
-      </select>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Component</label>
+          <select
+            v-model="componentFilter"
+            class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none"
+          >
+            <option value="">All</option>
+            <option v-for="comp in availableComponents" :key="comp" :value="comp">
+              {{ comp }}
+            </option>
+          </select>
+        </div>
+
+        <div>
+          <button
+            @click="clearFilters"
+            class="w-full px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium rounded-md transition-colors border border-blue-200"
+          >
+            Clear Filters
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Last Updated -->
@@ -218,6 +235,15 @@ export default {
         team: this.teamFilter,
         component: this.componentFilter
       }))
+    },
+    clearFilters() {
+      this.teamFilter = ''
+      this.componentFilter = ''
+      try {
+        localStorage.removeItem(FILTER_STORAGE_KEY)
+      } catch (error) {
+        console.error('Failed to remove filters from localStorage:', error)
+      }
     }
   }
 }

@@ -95,6 +95,9 @@
         {{ feature.linkedRfe.key }}
       </a>
       <p class="text-sm text-gray-700 mt-1">{{ feature.linkedRfe.title }}</p>
+      <div class="text-sm text-gray-600 mt-1">
+        Reporter: {{ feature.linkedRfe.reporter || 'Unknown' }} • Assignee: {{ feature.linkedRfe.assignee || 'Unassigned' }}
+      </div>
       <div v-if="feature.linkedRfe.approvalDate" class="text-xs text-gray-500 mt-1">
         Approved: {{ formatDate(feature.linkedRfe.approvalDate) }}
       </div>
