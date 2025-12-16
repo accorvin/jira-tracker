@@ -86,15 +86,21 @@
       </div>
     </header>
 
+    <TopNav
+      :currentView="currentView"
+      @view-change="handleViewChange"
+    />
+
     <ReleaseTabBar
-      v-if="isInitialized"
+      v-if="isInitialized && currentView === 'release-tracking'"
       :releases="releases"
       :selectedRelease="selectedRelease"
       @select="selectRelease"
       @add="openAddModal"
     />
 
-    <main class="flex">
+    <!-- Release Tracking View -->
+    <main v-if="currentView === 'release-tracking'" class="flex">
       <ReleaseInfoPanel
         v-if="currentRelease"
         :release="currentRelease"
@@ -120,6 +126,13 @@
       </div>
     </main>
 
+    <!-- Feature Intake View -->
+    <div v-else-if="currentView === 'feature-intake'">
+      <div class="container mx-auto px-6 py-8">
+        <p class="text-gray-500">Feature Intake view coming soon...</p>
+      </div>
+    </div>
+
     <ReleaseModal
       :show="showReleaseModal"
       :release="editingRelease"
@@ -141,6 +154,7 @@
 
 <script>
 import AuthGuard from './components/AuthGuard.vue'
+import TopNav from './components/TopNav.vue'
 import KanbanBoard from './components/KanbanBoard.vue'
 import FilterBar from './components/FilterBar.vue'
 import ReleaseTabBar from './components/ReleaseTabBar.vue'
@@ -155,6 +169,7 @@ export default {
   name: 'App',
   components: {
     AuthGuard,
+    TopNav,
     KanbanBoard,
     FilterBar,
     ReleaseTabBar,
@@ -172,6 +187,7 @@ export default {
   },
   data() {
     return {
+      currentView: 'release-tracking',
       allIssues: [],
       filteredIssues: [],
       lastUpdated: null,
@@ -505,6 +521,10 @@ export default {
       }
 
       return '??'
+    },
+
+    handleViewChange(view) {
+      this.currentView = view
     }
   }
 }
