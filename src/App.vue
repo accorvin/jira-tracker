@@ -127,11 +127,10 @@
     </main>
 
     <!-- Feature Intake View -->
-    <div v-else-if="currentView === 'feature-intake'">
-      <div class="container mx-auto px-6 py-8">
-        <p class="text-gray-500">Feature Intake view coming soon...</p>
-      </div>
-    </div>
+    <IntakeView
+      v-else-if="currentView === 'feature-intake'"
+      :isRefreshing="isRefreshing"
+    />
 
     <ReleaseModal
       :show="showReleaseModal"
@@ -155,6 +154,7 @@
 <script>
 import AuthGuard from './components/AuthGuard.vue'
 import TopNav from './components/TopNav.vue'
+import IntakeView from './components/IntakeView.vue'
 import KanbanBoard from './components/KanbanBoard.vue'
 import FilterBar from './components/FilterBar.vue'
 import ReleaseTabBar from './components/ReleaseTabBar.vue'
@@ -170,6 +170,7 @@ export default {
   components: {
     AuthGuard,
     TopNav,
+    IntakeView,
     KanbanBoard,
     FilterBar,
     ReleaseTabBar,
