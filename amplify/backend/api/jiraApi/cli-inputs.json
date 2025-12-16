@@ -21,6 +21,13 @@
       "permissions": {
         "setting": "open"
       }
+    },
+    "/intake": {
+      "name": "/intake",
+      "lambdaFunction": "issuesReader",
+      "permissions": {
+        "setting": "open"
+      }
     }
   }
 }
