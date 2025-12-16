@@ -111,6 +111,53 @@ describe('ReleaseModal', () => {
     expect(error.text()).toContain('rhoai-X.Y')
   })
 
+  it('accepts extended version format with suffix (e.g., rhoai-3.4.EA1)', async () => {
+    const wrapper = mount(ReleaseModal, {
+      props: { show: true, release: null }
+    })
+
+    const nameInput = wrapper.find('[data-testid="release-name-input"]')
+    await nameInput.setValue('rhoai-3.4.EA1')
+
+    const form = wrapper.find('form')
+    await form.trigger('submit')
+
+    const error = wrapper.find('[data-testid="name-error"]')
+    expect(error.exists()).toBe(false)
+    expect(wrapper.emitted('save')).toBeTruthy()
+  })
+
+  it('accepts extended version format with RC suffix (e.g., rhoai-3.4.RC2)', async () => {
+    const wrapper = mount(ReleaseModal, {
+      props: { show: true, release: null }
+    })
+
+    const nameInput = wrapper.find('[data-testid="release-name-input"]')
+    await nameInput.setValue('rhoai-3.4.RC2')
+
+    const form = wrapper.find('form')
+    await form.trigger('submit')
+
+    const error = wrapper.find('[data-testid="name-error"]')
+    expect(error.exists()).toBe(false)
+    expect(wrapper.emitted('save')).toBeTruthy()
+  })
+
+  it('rejects version format with trailing dot (e.g., rhoai-3.4.)', async () => {
+    const wrapper = mount(ReleaseModal, {
+      props: { show: true, release: null }
+    })
+
+    const nameInput = wrapper.find('[data-testid="release-name-input"]')
+    await nameInput.setValue('rhoai-3.4.')
+
+    const form = wrapper.find('form')
+    await form.trigger('submit')
+
+    const error = wrapper.find('[data-testid="name-error"]')
+    expect(error.exists()).toBe(true)
+  })
+
   it('emits save with release data on valid submit', async () => {
     const wrapper = mount(ReleaseModal, {
       props: { show: true, release: null }

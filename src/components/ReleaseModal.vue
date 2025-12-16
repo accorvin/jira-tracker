@@ -29,7 +29,7 @@
                 data-testid="release-name-input"
                 v-model="form.name"
                 type="text"
-                placeholder="rhoai-3.2"
+                placeholder="rhoai-3.4.EA1"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
               />
               <p
@@ -160,9 +160,9 @@ export default {
         return
       }
 
-      const pattern = /^rhoai-\d+\.\d+$/
+      const pattern = /^rhoai-\d+\.\d+(\.[A-Za-z0-9]+)?$/
       if (!pattern.test(this.form.name)) {
-        this.errors.name = 'Release name must match format rhoai-X.Y (e.g., rhoai-3.2)'
+        this.errors.name = 'Release name must match format rhoai-X.Y or rhoai-X.Y.Z (e.g., rhoai-3.2 or rhoai-3.4.EA1)'
         return
       }
 

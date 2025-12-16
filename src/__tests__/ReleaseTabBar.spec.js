@@ -179,4 +179,30 @@ describe('ReleaseTabBar', () => {
     expect(tabTexts[1]).toBe('rhoai-3.10')
     expect(tabTexts[2]).toBe('rhoai-4.0')
   })
+
+  it('sorts extended versions with suffixes correctly', () => {
+    const extendedVersionReleases = [
+      { name: 'rhoai-3.4', planDate: '2025-03-01', codeFreeze: '2025-04-01', releaseDate: '2025-05-01' },
+      { name: 'rhoai-3.4.RC1', planDate: '2025-02-15', codeFreeze: '2025-03-15', releaseDate: '2025-04-15' },
+      { name: 'rhoai-3.4.EA1', planDate: '2025-01-01', codeFreeze: '2025-02-01', releaseDate: '2025-03-01' },
+      { name: 'rhoai-3.3', planDate: '2024-12-01', codeFreeze: '2025-01-01', releaseDate: '2025-02-01' }
+    ]
+
+    const wrapper = mount(ReleaseTabBar, {
+      props: {
+        releases: extendedVersionReleases,
+        selectedRelease: 'rhoai-3.4'
+      }
+    })
+
+    const tabs = wrapper.findAll('[data-testid="release-tab"]')
+    const tabTexts = tabs.map(tab => tab.text())
+
+    // Pre-releases (EA1, RC1) should come before the base version
+    // Expected order: 3.3, 3.4.EA1, 3.4.RC1, 3.4
+    expect(tabTexts[0]).toBe('rhoai-3.3')
+    expect(tabTexts[1]).toBe('rhoai-3.4.EA1')
+    expect(tabTexts[2]).toBe('rhoai-3.4.RC1')
+    expect(tabTexts[3]).toBe('rhoai-3.4')
+  })
 })

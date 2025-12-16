@@ -255,13 +255,31 @@ export default {
       return this.releases
         .slice()
         .sort((a, b) => {
-          const aMatch = a.name.match(/rhoai-(\d+)\.(\d+)/)
-          const bMatch = b.name.match(/rhoai-(\d+)\.(\d+)/)
+          const aMatch = a.name.match(/rhoai-(\d+)\.(\d+)(?:\.([A-Za-z0-9]+))?/)
+          const bMatch = b.name.match(/rhoai-(\d+)\.(\d+)(?:\.([A-Za-z0-9]+))?/)
+
           if (!aMatch || !bMatch) return 0
-          const [, aMaj, aMin] = aMatch.map(Number)
-          const [, bMaj, bMin] = bMatch.map(Number)
+
+          const aMaj = Number(aMatch[1])
+          const aMin = Number(aMatch[2])
+          const aSuffix = aMatch[3] || ''
+
+          const bMaj = Number(bMatch[1])
+          const bMin = Number(bMatch[2])
+          const bSuffix = bMatch[3] || ''
+
+          // Sort by major version
           if (aMaj !== bMaj) return aMaj - bMaj
-          return aMin - bMin
+
+          // Sort by minor version
+          if (aMin !== bMin) return aMin - bMin
+
+          // For same major.minor, pre-releases (with suffix) come before base version (no suffix)
+          if (aSuffix && !bSuffix) return -1
+          if (!aSuffix && bSuffix) return 1
+
+          // Both have suffixes or both don't - sort alphabetically by suffix
+          return aSuffix.localeCompare(bSuffix)
         })[0]?.name
     },
 
