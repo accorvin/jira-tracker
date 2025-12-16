@@ -144,6 +144,33 @@ export const hygieneRules = [
     message: (issue) => {
       return `This feature is in ${issue.status} but has no release type set. Set the release type (GA, Tech Preview, etc.) for planning.`
     }
+  },
+  {
+    id: 'missing-rfe-link',
+    name: 'Missing RFE Link',
+    check: (issue) => {
+      if (issue.issueType !== 'Feature') return false
+      if (!isInRefinement(issue) && !isInProgress(issue)) return false
+      return !issue.linkedRfeApproved
+    },
+    message: (issue) => {
+      if (!issue.linkedRfeKey) {
+        return 'This feature is not linked to an RFE. Features should be cloned from an approved RFE.'
+      }
+      return `This feature is linked to RFE ${issue.linkedRfeKey} which is not in Approved status.`
+    }
+  },
+  {
+    id: 'premature-release-target',
+    name: 'Premature Release Target',
+    check: (issue) => {
+      return issue.status === 'New' &&
+             issue.targetRelease &&
+             issue.targetRelease.length > 0
+    },
+    message: (issue) => {
+      return `This feature is in New status but already has a target release set. Target release should only be set after refinement is complete.`
+    }
   }
 ]
 

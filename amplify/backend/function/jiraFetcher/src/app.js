@@ -110,7 +110,7 @@ async function fetchIssuesFromJira(targetRelease) {
 
   const jql = buildJqlQuery(targetRelease);
   const fields = [
-    'key', 'summary', 'issuetype', 'assignee', 'status', 'created',
+    'key', 'summary', 'issuetype', 'assignee', 'status', 'created', 'issuelinks',
     CUSTOM_FIELDS.team,
     CUSTOM_FIELDS.releaseType,
     CUSTOM_FIELDS.targetRelease,
@@ -276,12 +276,25 @@ function serializeListField(fieldValue) {
 /**
  * Transform raw Jira issue
  */
-function transformIssue(issue) {
+function transformIssue(issue, rfeMap = {}) {
   const fields = issue.fields;
   const renderedFields = issue.renderedFields || {};
 
   const statusSummary = renderedFields[CUSTOM_FIELDS.statusSummary] ||
     serializeField(fields[CUSTOM_FIELDS.statusSummary]);
+
+  // Get clones links for RFE checking
+  const clonesLinks = getClonesLinks(issue);
+  let linkedRfeKey = null;
+  let linkedRfeApproved = false;
+
+  for (const rfeKey of clonesLinks) {
+    linkedRfeKey = rfeKey;
+    if (rfeMap[rfeKey] && rfeMap[rfeKey].status === 'Approved') {
+      linkedRfeApproved = true;
+      break;
+    }
+  }
 
   return {
     key: issue.key,
@@ -296,6 +309,8 @@ function transformIssue(issue) {
     statusSummaryUpdated: getStatusSummaryUpdatedDate(issue),
     statusEnteredAt: getStatusEnteredAtDate(issue),
     colorStatus: serializeField(fields[CUSTOM_FIELDS.colorStatus]),
+    linkedRfeKey: linkedRfeKey,
+    linkedRfeApproved: linkedRfeApproved,
     url: `https://issues.redhat.com/browse/${issue.key}`
   };
 }
@@ -621,12 +636,22 @@ async function refreshIntakeFeatures() {
 async function refreshAllReleases(releases) {
   const results = [];
 
+  // Fetch RFE map once for all releases to check RFE links
+  let rfeMap = {};
+  try {
+    rfeMap = await fetchApprovedRfes();
+    console.log(`Fetched ${Object.keys(rfeMap).length} approved RFEs for hygiene checking`);
+  } catch (error) {
+    console.warn('Failed to fetch RFEs for hygiene checking:', error);
+    // Continue without RFE data - hygiene checks will show missing links
+  }
+
   for (const release of releases) {
     console.log(`Fetching issues for ${release.name}...`);
 
     try {
       const rawIssues = await fetchIssuesFromJira(release.name);
-      const transformedIssues = rawIssues.map(transformIssue);
+      const transformedIssues = rawIssues.map(issue => transformIssue(issue, rfeMap));
 
       const output = {
         lastUpdated: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),

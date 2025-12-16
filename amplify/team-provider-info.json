@@ -15,11 +15,11 @@
       "function": {
         "jiraFetcher": {
           "deploymentBucketName": "amplify-jiratrackerapp-dev-3b596-deployment",
-          "s3Key": "amplify-builds/jiraFetcher-516576446362576d596c-build.zip"
+          "s3Key": "amplify-builds/jiraFetcher-384d374368744e414348-build.zip"
         },
         "issuesReader": {
           "deploymentBucketName": "amplify-jiratrackerapp-dev-3b596-deployment",
-          "s3Key": "amplify-builds/issuesReader-37786650425771422f35-build.zip"
+          "s3Key": "amplify-builds/issuesReader-3366686c73466e413774-build.zip"
         }
       },
       "api": {
