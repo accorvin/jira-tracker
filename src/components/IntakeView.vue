@@ -69,6 +69,12 @@
     </div>
 
     <LoadingOverlay v-if="isLoading" />
+
+    <HelpBubble
+      storageKey="feature-intake-help-dismissed"
+      title="About Feature Intake"
+      content="This page shows Features and Initiatives in 'New' status that are linked to approved RFEs and don't have a target release yet. Use this to review and prioritize incoming work."
+    />
   </main>
 </template>
 
@@ -76,6 +82,7 @@
 import draggable from 'vuedraggable'
 import TeamSection from './TeamSection.vue'
 import LoadingOverlay from './LoadingOverlay.vue'
+import HelpBubble from './HelpBubble.vue'
 import { getIntakeFeatures } from '../services/api'
 
 const STORAGE_KEY = 'feature-intake-group-order'
@@ -86,7 +93,8 @@ export default {
   components: {
     draggable,
     TeamSection,
-    LoadingOverlay
+    LoadingOverlay,
+    HelpBubble
   },
   props: {
     isRefreshing: Boolean
