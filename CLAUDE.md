@@ -31,6 +31,17 @@ npm run dev
 
 Click the **Refresh** button in the header to fetch fresh data from Jira.
 
+### AWS CLI Commands
+
+**IMPORTANT:** Always prepend AWS and Amplify CLI commands with `AWS_PROFILE=ais`
+
+Examples:
+```bash
+AWS_PROFILE=ais aws ssm get-parameter --name /jira-tracker-app/dev/jira-token
+AWS_PROFILE=ais aws cloudformation describe-stacks
+AWS_PROFILE=ais amplify publish
+```
+
 ## Project Structure
 ```
 ├── public/
