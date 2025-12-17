@@ -239,10 +239,15 @@ export default {
 
       // Load data when user becomes authenticated
       if (newUser && !oldUser) {
+        this.isLoading = true
         this.loadReleases().then(() => {
           if (this.selectedRelease) {
             this.fetchIssues()
+          } else {
+            this.isLoading = false
           }
+        }).catch(() => {
+          this.isLoading = false
         })
       }
     }
