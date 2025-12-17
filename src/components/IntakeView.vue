@@ -71,7 +71,6 @@
     <LoadingOverlay v-if="isLoading" />
 
     <HelpBubble
-      storageKey="feature-intake-help-dismissed"
       title="About Feature Intake"
       content="This page shows Features and Initiatives in 'New' status that are linked to approved RFEs and don't have a target release yet. Use this to review and prioritize incoming work."
     />

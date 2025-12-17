@@ -2,33 +2,15 @@
  * Tests for HelpBubble.vue component
  * Following TDD practices - tests written before implementation
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import HelpBubble from '../components/HelpBubble.vue'
 
-// Mock localStorage
-const localStorageMock = (() => {
-  let store = {}
-  return {
-    getItem: (key) => store[key] || null,
-    setItem: (key, value) => { store[key] = value.toString() },
-    removeItem: (key) => { delete store[key] },
-    clear: () => { store = {} }
-  }
-})()
-
-global.localStorage = localStorageMock
-
 describe('HelpBubble', () => {
   const defaultProps = {
-    storageKey: 'test-help-dismissed',
     title: 'Test Help',
     content: 'This is test help content.'
   }
-
-  beforeEach(() => {
-    localStorage.clear()
-  })
 
   describe('Initial rendering', () => {
     it('renders the question mark icon button', () => {
@@ -54,7 +36,7 @@ describe('HelpBubble', () => {
       expect(wrapper.text()).not.toContain(defaultProps.content)
     })
 
-    it('is visible when not dismissed', () => {
+    it('is always visible', () => {
       const wrapper = mount(HelpBubble, { props: defaultProps })
 
       expect(wrapper.find('[data-testid="help-bubble"]').exists()).toBe(true)
@@ -95,71 +77,7 @@ describe('HelpBubble', () => {
     })
   })
 
-  describe('Dismiss permanently', () => {
-    it('shows dismiss button in expanded view', async () => {
-      const wrapper = mount(HelpBubble, { props: defaultProps })
-
-      const button = wrapper.find('button')
-      await button.trigger('click')
-
-      const dismissButton = wrapper.find('[data-testid="help-dismiss"]')
-      expect(dismissButton.exists()).toBe(true)
-      expect(dismissButton.text()).toContain("Don't show again")
-    })
-
-    it('hides entire component when dismissed', async () => {
-      const wrapper = mount(HelpBubble, { props: defaultProps })
-
-      // Open the help
-      const button = wrapper.find('button')
-      await button.trigger('click')
-
-      // Click dismiss
-      const dismissButton = wrapper.find('[data-testid="help-dismiss"]')
-      await dismissButton.trigger('click')
-
-      // Component should be hidden
-      expect(wrapper.find('[data-testid="help-bubble"]').exists()).toBe(false)
-    })
-
-    it('saves dismissed state to localStorage', async () => {
-      const wrapper = mount(HelpBubble, { props: defaultProps })
-
-      const button = wrapper.find('button')
-      await button.trigger('click')
-
-      const dismissButton = wrapper.find('[data-testid="help-dismiss"]')
-      await dismissButton.trigger('click')
-
-      expect(localStorage.getItem(defaultProps.storageKey)).toBe('true')
-    })
-
-    it('stays hidden on remount when previously dismissed', async () => {
-      localStorage.setItem(defaultProps.storageKey, 'true')
-
-      const wrapper = mount(HelpBubble, { props: defaultProps })
-      await wrapper.vm.$nextTick()
-
-      expect(wrapper.find('[data-testid="help-bubble"]').exists()).toBe(false)
-    })
-  })
-
   describe('Props', () => {
-    it('uses custom storageKey for localStorage', async () => {
-      const customKey = 'my-custom-help-key'
-      const wrapper = mount(HelpBubble, {
-        props: { ...defaultProps, storageKey: customKey }
-      })
-
-      const button = wrapper.find('button')
-      await button.trigger('click')
-
-      const dismissButton = wrapper.find('[data-testid="help-dismiss"]')
-      await dismissButton.trigger('click')
-
-      expect(localStorage.getItem(customKey)).toBe('true')
-    })
-
     it('renders custom title', async () => {
       const wrapper = mount(HelpBubble, {
         props: { ...defaultProps, title: 'Custom Title' }
@@ -180,6 +98,46 @@ describe('HelpBubble', () => {
       await button.trigger('click')
 
       expect(wrapper.text()).toContain('Custom help text here.')
+    })
+  })
+
+  describe('Action button', () => {
+    it('does not show action button when actionLabel not provided', async () => {
+      const wrapper = mount(HelpBubble, { props: defaultProps })
+
+      const button = wrapper.find('button')
+      await button.trigger('click')
+
+      const actionButton = wrapper.find('[data-testid="help-action"]')
+      expect(actionButton.exists()).toBe(false)
+    })
+
+    it('shows action button when actionLabel is provided', async () => {
+      const wrapper = mount(HelpBubble, {
+        props: { ...defaultProps, actionLabel: 'View Details' }
+      })
+
+      const button = wrapper.find('button')
+      await button.trigger('click')
+
+      const actionButton = wrapper.find('[data-testid="help-action"]')
+      expect(actionButton.exists()).toBe(true)
+      expect(actionButton.text()).toContain('View Details')
+    })
+
+    it('emits action event when action button is clicked', async () => {
+      const wrapper = mount(HelpBubble, {
+        props: { ...defaultProps, actionLabel: 'View Details' }
+      })
+
+      const button = wrapper.find('button')
+      await button.trigger('click')
+
+      const actionButton = wrapper.find('[data-testid="help-action"]')
+      await actionButton.trigger('click')
+
+      expect(wrapper.emitted('action')).toBeTruthy()
+      expect(wrapper.emitted('action').length).toBe(1)
     })
   })
 

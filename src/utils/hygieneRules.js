@@ -70,6 +70,7 @@ export const hygieneRules = [
   {
     id: 'stale-refinement',
     name: 'Stale Refinement',
+    description: 'Issues shouldn\'t linger in Refinement. If an issue has been in Refinement for more than 21 days, it\'s likely blocked or needs to be descoped. Move it back to Backlog or escalate blockers.',
     check: (issue) => {
       return isInRefinement(issue) && getDaysInStatus(issue) > 21
     },
@@ -81,6 +82,7 @@ export const hygieneRules = [
   {
     id: 'missing-assignee',
     name: 'Missing Assignee',
+    description: 'Every issue in active work (Refinement or In Progress) needs an owner. Assign someone to ensure accountability and clear communication.',
     check: (issue) => {
       return (isInRefinement(issue) || isInProgress(issue)) && !issue.assignee
     },
@@ -91,6 +93,7 @@ export const hygieneRules = [
   {
     id: 'missing-team',
     name: 'Missing Team',
+    description: 'Issues in active work must have a team assigned for tracking ownership and workload distribution across the organization.',
     check: (issue) => {
       return (isInRefinement(issue) || isInProgress(issue)) && !issue.team
     },
@@ -101,6 +104,7 @@ export const hygieneRules = [
   {
     id: 'stale-status-summary',
     name: 'Stale or Missing Status Summary',
+    description: 'Status summaries keep stakeholders informed. Update the summary at least weekly.',
     check: (issue) => {
       if (!isInRefinement(issue) && !isInProgress(issue)) {
         return false
@@ -128,6 +132,7 @@ export const hygieneRules = [
   {
     id: 'missing-color-status',
     name: 'Missing Color Status',
+    description: 'Issues In Progress need a health indicator (Green/Yellow/Red) so leadership can quickly identify items needing attention.',
     check: (issue) => {
       return isInProgress(issue) && !issue.colorStatus
     },
@@ -138,6 +143,7 @@ export const hygieneRules = [
   {
     id: 'missing-release-type',
     name: 'Missing Release Type',
+    description: 'Features In Progress must specify their release type (GA, Tech Preview, Dev Preview) for accurate release planning and documentation.',
     check: (issue) => {
       return isInProgress(issue) && issue.issueType === 'Feature' && !issue.releaseType
     },
@@ -148,6 +154,7 @@ export const hygieneRules = [
   {
     id: 'missing-rfe-link',
     name: 'Missing RFE Link',
+    description: 'Features should be cloned from an approved RFE to ensure proper product management review and customer traceability. The feature must use a "clones" link type to the RFE; other link types will still trigger this warning.',
     check: (issue) => {
       if (issue.issueType !== 'Feature') return false
       if (!isInRefinement(issue) && !isInProgress(issue)) return false
@@ -163,6 +170,7 @@ export const hygieneRules = [
   {
     id: 'premature-release-target',
     name: 'Premature Release Target',
+    description: 'Issues in New status shouldn\'t have a target release yet. Target release should only be set after refinement confirms the scope and effort.',
     check: (issue) => {
       return issue.status === 'New' &&
              issue.targetRelease &&

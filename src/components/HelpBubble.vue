@@ -1,6 +1,5 @@
 <template>
   <div
-    v-if="!isDismissed"
     data-testid="help-bubble"
     class="fixed bottom-4 right-4 z-50"
   >
@@ -27,13 +26,13 @@
       <div class="p-4 text-sm text-gray-700 leading-relaxed">
         {{ content }}
       </div>
-      <div class="px-4 pb-4">
+      <div v-if="actionLabel" class="px-4 pb-4">
         <button
-          data-testid="help-dismiss"
-          @click="dismissPermanently"
-          class="text-xs text-gray-500 hover:text-gray-700 underline transition-colors"
+          data-testid="help-action"
+          @click="$emit('action')"
+          class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
         >
-          Don't show again
+          {{ actionLabel }}
         </button>
       </div>
     </div>
@@ -53,10 +52,6 @@
 export default {
   name: 'HelpBubble',
   props: {
-    storageKey: {
-      type: String,
-      required: true
-    },
     title: {
       type: String,
       required: true
@@ -64,21 +59,16 @@ export default {
     content: {
       type: String,
       required: true
+    },
+    actionLabel: {
+      type: String,
+      default: ''
     }
   },
+  emits: ['action'],
   data() {
     return {
-      isOpen: false,
-      isDismissed: false
-    }
-  },
-  mounted() {
-    this.isDismissed = localStorage.getItem(this.storageKey) === 'true'
-  },
-  methods: {
-    dismissPermanently() {
-      localStorage.setItem(this.storageKey, 'true')
-      this.isDismissed = true
+      isOpen: false
     }
   }
 }

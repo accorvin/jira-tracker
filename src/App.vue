@@ -124,6 +124,13 @@
 
         <LoadingOverlay v-if="isLoading || isRefreshing" />
       </div>
+
+      <HelpBubble
+        title="Release Tracking Help"
+        content="This board shows features and initiatives for the selected release, organized by status. Issues with hygiene violations display a pulsing warning icon. Click any card to view details in Jira."
+        actionLabel="View Hygiene Rules"
+        @action="showHygieneModal = true"
+      />
     </main>
 
     <!-- Feature Intake View -->
@@ -137,6 +144,11 @@
       :release="editingRelease"
       @save="saveRelease"
       @cancel="closeModal"
+    />
+
+    <HygieneRulesModal
+      :show="showHygieneModal"
+      @close="showHygieneModal = false"
     />
 
     <Toast
@@ -162,6 +174,8 @@ import ReleaseInfoPanel from './components/ReleaseInfoPanel.vue'
 import ReleaseModal from './components/ReleaseModal.vue'
 import LoadingOverlay from './components/LoadingOverlay.vue'
 import Toast from './components/Toast.vue'
+import HelpBubble from './components/HelpBubble.vue'
+import HygieneRulesModal from './components/HygieneRulesModal.vue'
 import { useAuth } from './composables/useAuth'
 import { refreshIssues, getIssues, getReleases, saveReleases } from './services/api'
 
@@ -177,7 +191,9 @@ export default {
     ReleaseInfoPanel,
     ReleaseModal,
     LoadingOverlay,
-    Toast
+    Toast,
+    HelpBubble,
+    HygieneRulesModal
   },
   setup() {
     const { user: authUser, signOut } = useAuth()
@@ -207,7 +223,8 @@ export default {
       isInitialized: false,
       showUserMenu: false,
       avatarLoadError: false,
-      toasts: []
+      toasts: [],
+      showHygieneModal: false
     }
   },
   computed: {
