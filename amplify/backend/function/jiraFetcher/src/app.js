@@ -284,13 +284,19 @@ function transformIssue(issue, rfeMap = {}) {
     serializeField(fields[CUSTOM_FIELDS.statusSummary]);
 
   // Get clones links for RFE checking
+  // Only consider issues from RHAIRFE project as actual RFEs
   const clonesLinks = getClonesLinks(issue);
   let linkedRfeKey = null;
   let linkedRfeApproved = false;
 
-  for (const rfeKey of clonesLinks) {
-    linkedRfeKey = rfeKey;
-    if (rfeMap[rfeKey] && rfeMap[rfeKey].status === 'Approved') {
+  for (const key of clonesLinks) {
+    // Only treat RHAIRFE issues as RFEs
+    if (!key.startsWith('RHAIRFE-')) {
+      continue;
+    }
+    linkedRfeKey = key;
+    // RFE is in rfeMap only if it was approved (currently or previously)
+    if (rfeMap[key]) {
       linkedRfeApproved = true;
       break;
     }
@@ -316,12 +322,13 @@ function transformIssue(issue, rfeMap = {}) {
 }
 
 /**
- * Build JQL query for approved RFEs
+ * Build JQL query for RFEs in approved or post-approval statuses
  */
 function buildRfeJqlQuery() {
   const projectFilter = 'project = RHAIRFE';
   const issueTypeFilter = 'issuetype = "Feature Request"';
-  const statusFilter = 'status = Approved';
+  // Include Approved and all post-approval statuses
+  const statusFilter = 'status IN (Approved, "In Progress", Review, Resolved, Closed)';
   const componentFilter = `component IN (${COMPONENTS.map(c => `'${c}'`).join(', ')})`;
 
   return `${projectFilter} AND ${issueTypeFilter} AND ${statusFilter} AND ${componentFilter}`;
@@ -395,16 +402,26 @@ async function fetchApprovedRfes() {
   }
 
   // Transform to map for quick lookup
+  // Only include RFEs that are currently Approved or were previously approved
   const rfeMap = {};
   for (const rfe of rfes) {
-    rfeMap[rfe.key] = {
-      key: rfe.key,
-      title: rfe.fields.summary,
-      approvalDate: getApprovalDateFromChangelog(rfe),
-      status: rfe.fields.status?.name,
-      reporter: rfe.fields.reporter?.displayName || null,
-      assignee: rfe.fields.assignee?.displayName || null
-    };
+    const currentStatus = rfe.fields.status?.name;
+    const approvalDate = getApprovalDateFromChangelog(rfe);
+
+    // Include if currently Approved, or if in post-approval status AND was previously approved
+    const isCurrentlyApproved = currentStatus === 'Approved';
+    const wasApproved = approvalDate !== null;
+
+    if (isCurrentlyApproved || wasApproved) {
+      rfeMap[rfe.key] = {
+        key: rfe.key,
+        title: rfe.fields.summary,
+        approvalDate: approvalDate,
+        status: currentStatus,
+        reporter: rfe.fields.reporter?.displayName || null,
+        assignee: rfe.fields.assignee?.displayName || null
+      };
+    }
   }
 
   return rfeMap;
