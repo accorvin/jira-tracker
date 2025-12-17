@@ -121,7 +121,7 @@
         },
         "Runtime": "nodejs18.x",
         "Layers": [],
-        "Timeout": 60
+        "Timeout": 120
       }
     },
     "LambdaExecutionRole": {

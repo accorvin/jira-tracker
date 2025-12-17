@@ -322,109 +322,73 @@ function transformIssue(issue, rfeMap = {}) {
 }
 
 /**
- * Build JQL query for RFEs in approved or post-approval statuses
- */
-function buildRfeJqlQuery() {
-  const projectFilter = 'project = RHAIRFE';
-  const issueTypeFilter = 'issuetype = "Feature Request"';
-  // Include Approved and all post-approval statuses
-  const statusFilter = 'status IN (Approved, "In Progress", Review, Resolved, Closed)';
-  const componentFilter = `component IN (${COMPONENTS.map(c => `'${c}'`).join(', ')})`;
-
-  return `${projectFilter} AND ${issueTypeFilter} AND ${statusFilter} AND ${componentFilter}`;
-}
-
-/**
- * Get the date when RFE status changed to "Approved"
- */
-function getApprovalDateFromChangelog(issue) {
-  if (!issue.changelog || !issue.changelog.histories) {
-    return null;
-  }
-
-  // Iterate in reverse to find most recent transition TO "Approved"
-  const histories = [...issue.changelog.histories].reverse();
-  for (const history of histories) {
-    for (const item of history.items) {
-      if (item.field === 'status' && item.toString === 'Approved') {
-        let timestamp = history.created;
-        if (timestamp.includes('+')) {
-          timestamp = timestamp.split('.')[0] + 'Z';
-        } else if (timestamp.includes('T') && timestamp.length > 19) {
-          timestamp = timestamp.substring(0, 19) + 'Z';
-        }
-        return timestamp;
-      }
-    }
-  }
-
-  return null;
-}
-
-/**
- * Fetch approved RFEs from Jira
+ * Fetch specific RFEs by their keys
+ * Only returns RFEs that are in approved or post-approval statuses
  * Returns map of RFE key -> RFE data for quick lookup
  */
-async function fetchApprovedRfes() {
-  const jiraToken = await getJiraToken();
-  const jql = buildRfeJqlQuery();
-
-  const fields = ['key', 'summary', 'status', 'components', 'reporter', 'assignee'].join(',');
-  const rfes = [];
-  let startAt = 0;
-  const maxResults = 100;
-
-  while (true) {
-    const url = new URL(`${JIRA_HOST}/rest/api/2/search`);
-    url.searchParams.set('jql', jql);
-    url.searchParams.set('startAt', startAt.toString());
-    url.searchParams.set('maxResults', maxResults.toString());
-    url.searchParams.set('fields', fields);
-    url.searchParams.set('expand', 'changelog');
-
-    const response = await fetch(url.toString(), {
-      headers: {
-        'Authorization': `Bearer ${jiraToken}`,
-        'Accept': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Jira API error fetching RFEs (${response.status}): ${errorText}`);
-    }
-
-    const data = await response.json();
-    if (!data.issues || data.issues.length === 0) break;
-    rfes.push(...data.issues);
-    if (data.issues.length < maxResults) break;
-    startAt += maxResults;
+async function fetchRfesByKeys(rfeKeys) {
+  if (!rfeKeys || rfeKeys.length === 0) {
+    return {};
   }
 
-  // Transform to map for quick lookup
-  // Only include RFEs that are currently Approved or were previously approved
-  const rfeMap = {};
-  for (const rfe of rfes) {
-    const currentStatus = rfe.fields.status?.name;
-    const approvalDate = getApprovalDateFromChangelog(rfe);
+  const jiraToken = await getJiraToken();
 
-    // Include if currently Approved, or if in post-approval status AND was previously approved
-    const isCurrentlyApproved = currentStatus === 'Approved';
-    const wasApproved = approvalDate !== null;
+  // Build JQL to fetch specific RFEs that are in approved/post-approval status
+  const keysFilter = `key IN (${rfeKeys.join(', ')})`;
+  const statusFilter = 'status IN (Approved, "In Progress", Review, Resolved, Closed)';
+  const jql = `project = RHAIRFE AND ${keysFilter} AND ${statusFilter}`;
 
-    if (isCurrentlyApproved || wasApproved) {
-      rfeMap[rfe.key] = {
-        key: rfe.key,
-        title: rfe.fields.summary,
-        approvalDate: approvalDate,
-        status: currentStatus,
-        reporter: rfe.fields.reporter?.displayName || null,
-        assignee: rfe.fields.assignee?.displayName || null
-      };
+  const fields = ['key', 'summary', 'status', 'components', 'reporter', 'assignee'].join(',');
+
+  const url = new URL(`${JIRA_HOST}/rest/api/2/search`);
+  url.searchParams.set('jql', jql);
+  url.searchParams.set('maxResults', '100');
+  url.searchParams.set('fields', fields);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      'Authorization': `Bearer ${jiraToken}`,
+      'Accept': 'application/json'
     }
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Jira API error fetching RFEs (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+
+  // Transform to map for quick lookup
+  const rfeMap = {};
+  for (const rfe of data.issues || []) {
+    rfeMap[rfe.key] = {
+      key: rfe.key,
+      title: rfe.fields.summary,
+      approvalDate: null,
+      status: rfe.fields.status?.name,
+      reporter: rfe.fields.reporter?.displayName || null,
+      assignee: rfe.fields.assignee?.displayName || null
+    };
   }
 
   return rfeMap;
+}
+
+/**
+ * Extract all RHAIRFE keys from a list of raw issues
+ */
+function extractRfeKeys(rawIssues) {
+  const rfeKeys = new Set();
+  for (const issue of rawIssues) {
+    const clonesLinks = getClonesLinks(issue);
+    for (const key of clonesLinks) {
+      if (key.startsWith('RHAIRFE-')) {
+        rfeKeys.add(key);
+      }
+    }
+  }
+  return Array.from(rfeKeys);
 }
 
 /**
@@ -624,13 +588,19 @@ async function readFromS3(key) {
  * Refresh intake features data
  */
 async function refreshIntakeFeatures() {
-  console.log('Fetching approved RFEs...');
-  const rfeMap = await fetchApprovedRfes();
-  console.log(`Found ${Object.keys(rfeMap).length} approved RFEs`);
-
   console.log('Fetching intake features...');
   const rawFeatures = await fetchIntakeFeatures();
   console.log(`Found ${rawFeatures.length} features in New status`);
+
+  // Extract linked RFE keys and fetch only those
+  const rfeKeys = extractRfeKeys(rawFeatures);
+  console.log(`Found ${rfeKeys.length} linked RFEs to check`);
+
+  let rfeMap = {};
+  if (rfeKeys.length > 0) {
+    rfeMap = await fetchRfesByKeys(rfeKeys);
+    console.log(`${Object.keys(rfeMap).length} of ${rfeKeys.length} RFEs are approved`);
+  }
 
   // Transform and filter to only features linked to approved RFEs
   const intakeFeatures = rawFeatures
@@ -655,21 +625,46 @@ async function refreshIntakeFeatures() {
 async function refreshAllReleases(releases) {
   const results = [];
 
-  // Fetch RFE map once for all releases to check RFE links
-  let rfeMap = {};
-  try {
-    rfeMap = await fetchApprovedRfes();
-    console.log(`Fetched ${Object.keys(rfeMap).length} approved RFEs for hygiene checking`);
-  } catch (error) {
-    console.warn('Failed to fetch RFEs for hygiene checking:', error);
-    // Continue without RFE data - hygiene checks will show missing links
-  }
+  // First, fetch all raw issues for all releases
+  const allRawIssues = [];
+  const releaseIssuesMap = {};
 
   for (const release of releases) {
     console.log(`Fetching issues for ${release.name}...`);
-
     try {
       const rawIssues = await fetchIssuesFromJira(release.name);
+      releaseIssuesMap[release.name] = rawIssues;
+      allRawIssues.push(...rawIssues);
+      console.log(`Found ${rawIssues.length} issues for ${release.name}`);
+    } catch (error) {
+      console.error(`Error fetching ${release.name}:`, error);
+      results.push({
+        release: release.name,
+        count: 0,
+        error: error.message
+      });
+    }
+  }
+
+  // Extract all linked RFE keys and fetch only those
+  let rfeMap = {};
+  try {
+    const rfeKeys = extractRfeKeys(allRawIssues);
+    console.log(`Found ${rfeKeys.length} linked RFEs to check`);
+    if (rfeKeys.length > 0) {
+      rfeMap = await fetchRfesByKeys(rfeKeys);
+      console.log(`${Object.keys(rfeMap).length} of ${rfeKeys.length} RFEs are approved`);
+    }
+  } catch (error) {
+    console.warn('Failed to fetch RFEs for hygiene checking:', error);
+  }
+
+  // Transform and save each release
+  for (const release of releases) {
+    if (!releaseIssuesMap[release.name]) continue; // Already errored
+
+    try {
+      const rawIssues = releaseIssuesMap[release.name];
       const transformedIssues = rawIssues.map(issue => transformIssue(issue, rfeMap));
 
       const output = {
@@ -687,7 +682,7 @@ async function refreshAllReleases(releases) {
         count: transformedIssues.length
       });
     } catch (error) {
-      console.error(`Error fetching ${release.name}:`, error);
+      console.error(`Error saving ${release.name}:`, error);
       results.push({
         release: release.name,
         count: 0,
