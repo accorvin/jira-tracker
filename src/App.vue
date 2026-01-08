@@ -108,7 +108,7 @@
         @delete="confirmDeleteRelease"
       />
 
-      <div class="flex-1 container mx-auto px-6 py-8 relative">
+      <div class="flex-1 px-6 py-8 relative">
         <FilterBar
           v-if="allIssues.length > 0"
           :issues="allIssues"

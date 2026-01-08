@@ -5,44 +5,44 @@
   >
     <!-- Front of card - always rendered, controls card height -->
     <div
-      class="card-front p-6 pb-20 transition-opacity duration-300"
+      class="card-front p-4 pb-12 transition-opacity duration-300"
       :class="isFlipped ? 'opacity-0 pointer-events-none' : 'opacity-100'"
       ref="cardFront"
     >
       <!-- Hygiene Warning in top-right corner -->
       <HygieneWarning :violations="hygieneViolations" />
 
-      <div class="flex justify-between items-start mb-3">
+      <div class="flex justify-between items-start mb-1">
         <a
           :href="issue.url"
           target="_blank"
           rel="noopener noreferrer"
-          class="text-primary-600 hover:text-primary-800 font-semibold text-lg"
+          class="text-primary-600 hover:text-primary-800 font-semibold text-base"
           @click.stop
         >
           {{ issue.key }}
         </a>
       </div>
 
-      <h3 class="text-xl font-semibold text-gray-900 mb-4">
+      <h3 class="text-base font-semibold text-gray-900 mb-2 leading-snug">
         {{ issue.summary }}
       </h3>
 
       <!-- Issue type badge moved below title -->
-      <div class="mb-4">
+      <div class="mb-2">
         <span
-          class="px-3 py-1 rounded-full text-sm font-medium"
+          class="px-2 py-0.5 rounded-full text-xs font-medium"
           :class="issueTypeBadgeClass"
         >
           {{ issue.issueType }}
         </span>
       </div>
 
-      <div class="space-y-2 text-sm">
+      <div class="space-y-1 text-sm">
         <div class="flex items-center">
-          <span class="font-medium text-gray-600 w-32">Status:</span>
+          <span class="font-medium text-gray-600 w-28">Status:</span>
           <span
-            class="px-2 py-1 rounded text-sm font-medium"
+            class="px-1.5 py-0.5 rounded text-xs font-medium"
             :class="statusBadgeClass"
           >
             {{ issue.status }}
@@ -50,49 +50,49 @@
         </div>
 
         <div class="flex items-center">
-          <span class="font-medium text-gray-600 w-32">Assignee:</span>
+          <span class="font-medium text-gray-600 w-28">Assignee:</span>
           <span class="text-gray-900">{{ issue.assignee || 'Unassigned' }}</span>
         </div>
 
         <div class="flex items-center field-team">
-          <span class="font-medium text-gray-600 w-32">Team:</span>
+          <span class="font-medium text-gray-600 w-28">Team:</span>
           <span
             class="field-value"
-            :class="issue.team ? 'text-gray-900' : 'bg-red-100 text-red-900 px-2 py-1 rounded font-medium'"
+            :class="issue.team ? 'text-gray-900' : 'bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-medium'"
           >
             {{ issue.team || 'Not set' }}
           </span>
         </div>
 
         <div class="flex items-center field-release-type">
-          <span class="font-medium text-gray-600 w-32">Release Type:</span>
+          <span class="font-medium text-gray-600 w-28">Release Type:</span>
           <span
             class="field-value"
-            :class="issue.releaseType ? 'text-gray-900' : 'bg-red-100 text-red-900 px-2 py-1 rounded font-medium'"
+            :class="issue.releaseType ? 'text-gray-900' : 'bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-medium'"
           >
             {{ issue.releaseType || 'Not set' }}
           </span>
         </div>
 
         <div class="flex items-center field-target-release">
-          <span class="font-medium text-gray-600 w-32">Target Release:</span>
-          <div v-if="issue.targetRelease && issue.targetRelease.length > 0" class="flex flex-wrap gap-2">
+          <span class="font-medium text-gray-600 w-28">Target Release:</span>
+          <div v-if="issue.targetRelease && issue.targetRelease.length > 0" class="flex flex-wrap gap-1">
             <span
               v-for="(release, index) in issue.targetRelease"
               :key="release"
-              class="target-release-bubble px-2 py-1 rounded-full text-sm font-medium"
+              class="target-release-bubble px-1.5 py-0.5 rounded-full text-xs font-medium"
               :class="getReleaseColorClass(release, index)"
             >
               {{ release }}
             </span>
           </div>
-          <span v-else class="field-value bg-red-100 text-red-900 px-2 py-1 rounded font-medium">Not set</span>
+          <span v-else class="field-value bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-medium">Not set</span>
         </div>
 
         <div class="flex items-center field-color-status">
-          <span class="font-medium text-gray-600 w-32">Color Status:</span>
+          <span class="font-medium text-gray-600 w-28">Color Status:</span>
           <span
-            class="field-value px-2 py-1 rounded font-medium"
+            class="field-value px-1.5 py-0.5 rounded font-medium"
             :class="colorStatusClass"
           >
             {{ colorStatusText }}
@@ -100,7 +100,7 @@
         </div>
 
         <div class="flex items-center field-status-age">
-          <span class="font-medium text-gray-600 w-32">Status Age:</span>
+          <span class="font-medium text-gray-600 w-28">Status Age:</span>
           <span
             class="field-value"
             :class="statusAgeClass"
@@ -111,7 +111,7 @@
       </div>
 
       <!-- Click for details badge -->
-      <div class="absolute bottom-4 right-4 bg-primary-50 text-primary-700 px-3 py-2 rounded-lg pointer-events-none border border-primary-200 shadow-sm">
+      <div class="absolute bottom-2 right-2 bg-primary-50 text-primary-700 px-2 py-1 rounded pointer-events-none border border-primary-200">
         <span class="text-xs font-medium whitespace-nowrap">Click for details</span>
       </div>
     </div>
@@ -224,7 +224,7 @@ export default {
 
       // Show red warning if no summary exists
       if (this.statusAgeInDays === null) {
-        return 'bg-red-100 text-red-900 px-2 py-1 rounded font-medium'
+        return 'bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-medium'
       }
 
       // Color-code based on age:
@@ -232,11 +232,11 @@ export default {
       // Yellow: 7-14 days (getting stale) - using brighter yellow for better contrast
       // Red: > 14 days (very stale)
       if (this.statusAgeInDays < 7) {
-        return 'bg-green-600 text-white px-2 py-1 rounded font-medium'
+        return 'bg-green-600 text-white px-1.5 py-0.5 rounded font-medium'
       } else if (this.statusAgeInDays <= 14) {
-        return 'bg-yellow-400 text-gray-900 px-2 py-1 rounded font-medium'
+        return 'bg-yellow-400 text-gray-900 px-1.5 py-0.5 rounded font-medium'
       } else {
-        return 'bg-red-100 text-red-900 px-2 py-1 rounded font-medium'
+        return 'bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-medium'
       }
     },
     statusSummaryDateText() {

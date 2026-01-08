@@ -1,12 +1,12 @@
 <template>
-  <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">Assignee</label>
+  <div class="bg-white rounded-lg shadow-md p-3 mb-3">
+    <div class="flex flex-wrap lg:flex-nowrap gap-2 items-center">
+      <div class="flex items-center gap-2 flex-1 min-w-0">
+        <label class="text-xs font-medium text-gray-500 whitespace-nowrap">Assignee:</label>
         <select
           v-model="filters.assignee"
           @change="emitFilterChange"
-          class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none"
+          class="flex-1 min-w-0 px-2 py-1 text-sm bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none"
         >
           <option value="">All</option>
           <option v-for="assignee in assigneeOptions" :key="assignee" :value="assignee">
@@ -15,12 +15,12 @@
         </select>
       </div>
 
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+      <div class="flex items-center gap-2 flex-1 min-w-0">
+        <label class="text-xs font-medium text-gray-500 whitespace-nowrap">Status:</label>
         <select
           v-model="filters.status"
           @change="emitFilterChange"
-          class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none"
+          class="flex-1 min-w-0 px-2 py-1 text-sm bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none"
         >
           <option value="">All</option>
           <option v-for="status in statusOptions" :key="status" :value="status">
@@ -29,12 +29,12 @@
         </select>
       </div>
 
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">Team</label>
+      <div class="flex items-center gap-2 flex-1 min-w-0">
+        <label class="text-xs font-medium text-gray-500 whitespace-nowrap">Team:</label>
         <select
           v-model="filters.team"
           @change="emitFilterChange"
-          class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none"
+          class="flex-1 min-w-0 px-2 py-1 text-sm bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none"
         >
           <option value="">All</option>
           <option v-for="team in teamOptions" :key="team" :value="team">
@@ -43,12 +43,12 @@
         </select>
       </div>
 
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">Issue Type</label>
+      <div class="flex items-center gap-2 flex-1 min-w-0">
+        <label class="text-xs font-medium text-gray-500 whitespace-nowrap">Type:</label>
         <select
           v-model="filters.issueType"
           @change="emitFilterChange"
-          class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none"
+          class="flex-1 min-w-0 px-2 py-1 text-sm bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none"
         >
           <option value="">All</option>
           <option v-for="type in issueTypeOptions" :key="type" :value="type">
@@ -57,14 +57,12 @@
         </select>
       </div>
 
-      <div>
-        <button
-          @click="clearFilters"
-          class="w-full px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium rounded-md transition-colors border border-blue-200"
-        >
-          Clear Filters
-        </button>
-      </div>
+      <button
+        @click="clearFilters"
+        class="px-3 py-1 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium rounded-md transition-colors border border-blue-200 whitespace-nowrap"
+      >
+        Clear Filters
+      </button>
     </div>
   </div>
 </template>
