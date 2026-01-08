@@ -1,8 +1,11 @@
 <template>
   <div
-    class="card-container cursor-pointer bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow border-l-4 border-primary-500 relative"
-    @click="toggleFlip"
+    class="card-wrapper"
   >
+    <div
+      class="card-container cursor-pointer bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow border-l-4 border-primary-500 relative"
+      @click="toggleFlip"
+    >
     <!-- Front of card - always rendered, controls card height -->
     <div
       class="card-front p-4 pb-12 transition-opacity duration-300"
@@ -38,75 +41,82 @@
         </span>
       </div>
 
-      <div class="space-y-1 text-sm">
-        <div class="flex items-center">
-          <span class="font-medium text-gray-600 w-28">Status:</span>
-          <span
-            class="px-1.5 py-0.5 rounded text-xs font-medium"
-            :class="statusBadgeClass"
-          >
-            {{ issue.status }}
-          </span>
-        </div>
-
-        <div class="flex items-center">
-          <span class="font-medium text-gray-600 w-28">Assignee:</span>
-          <span class="text-gray-900">{{ issue.assignee || 'Unassigned' }}</span>
-        </div>
-
-        <div class="flex items-center field-team">
-          <span class="font-medium text-gray-600 w-28">Team:</span>
-          <span
-            class="field-value"
-            :class="issue.team ? 'text-gray-900' : 'bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-medium'"
-          >
-            {{ issue.team || 'Not set' }}
-          </span>
-        </div>
-
-        <div class="flex items-center field-release-type">
-          <span class="font-medium text-gray-600 w-28">Release Type:</span>
-          <span
-            class="field-value"
-            :class="issue.releaseType ? 'text-gray-900' : 'bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-medium'"
-          >
-            {{ issue.releaseType || 'Not set' }}
-          </span>
-        </div>
-
-        <div class="flex items-center field-target-release">
-          <span class="font-medium text-gray-600 w-28">Target Release:</span>
-          <div v-if="issue.targetRelease && issue.targetRelease.length > 0" class="flex flex-wrap gap-1">
+      <!-- Responsive metadata grid - single column when narrow, two columns when wide -->
+      <div class="metadata-grid text-sm">
+        <!-- Left column -->
+        <div class="metadata-col space-y-1">
+          <div class="flex items-center">
+            <span class="font-medium text-gray-600 w-24 flex-shrink-0">Status:</span>
             <span
-              v-for="(release, index) in issue.targetRelease"
-              :key="release"
-              class="target-release-bubble px-1.5 py-0.5 rounded-full text-xs font-medium"
-              :class="getReleaseColorClass(release, index)"
+              class="px-1.5 py-0.5 rounded text-xs font-medium"
+              :class="statusBadgeClass"
             >
-              {{ release }}
+              {{ issue.status }}
             </span>
           </div>
-          <span v-else class="field-value bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-medium">Not set</span>
+
+          <div class="flex items-center">
+            <span class="font-medium text-gray-600 w-24 flex-shrink-0">Assignee:</span>
+            <span class="text-gray-900">{{ issue.assignee || 'Unassigned' }}</span>
+          </div>
+
+          <div class="flex items-center field-team">
+            <span class="font-medium text-gray-600 w-24 flex-shrink-0">Team:</span>
+            <span
+              class="field-value"
+              :class="issue.team ? 'text-gray-900' : 'bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-medium'"
+            >
+              {{ issue.team || 'Not set' }}
+            </span>
+          </div>
+
+          <div class="flex items-center field-release-type">
+            <span class="font-medium text-gray-600 w-24 flex-shrink-0">Rel. Type:</span>
+            <span
+              class="field-value"
+              :class="issue.releaseType ? 'text-gray-900' : 'bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-medium'"
+            >
+              {{ issue.releaseType || 'Not set' }}
+            </span>
+          </div>
         </div>
 
-        <div class="flex items-center field-color-status">
-          <span class="font-medium text-gray-600 w-28">Color Status:</span>
-          <span
-            class="field-value px-1.5 py-0.5 rounded font-medium"
-            :class="colorStatusClass"
-          >
-            {{ colorStatusText }}
-          </span>
-        </div>
+        <!-- Right column -->
+        <div class="metadata-col space-y-1">
+          <div class="flex items-center field-target-release">
+            <span class="font-medium text-gray-600 w-24 flex-shrink-0">Target:</span>
+            <div v-if="issue.targetRelease && issue.targetRelease.length > 0" class="flex flex-wrap gap-1">
+              <span
+                v-for="(release, index) in issue.targetRelease"
+                :key="release"
+                class="target-release-bubble px-1.5 py-0.5 rounded-full text-xs font-medium"
+                :class="getReleaseColorClass(release, index)"
+              >
+                {{ release }}
+              </span>
+            </div>
+            <span v-else class="field-value bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-medium">Not set</span>
+          </div>
 
-        <div class="flex items-center field-status-age">
-          <span class="font-medium text-gray-600 w-28">Status Age:</span>
-          <span
-            class="field-value"
-            :class="statusAgeClass"
-          >
-            {{ statusAgeText }}
-          </span>
+          <div class="flex items-center field-color-status">
+            <span class="font-medium text-gray-600 w-24 flex-shrink-0">Color:</span>
+            <span
+              class="field-value px-1.5 py-0.5 rounded font-medium"
+              :class="colorStatusClass"
+            >
+              {{ colorStatusText }}
+            </span>
+          </div>
+
+          <div class="flex items-center field-status-age">
+            <span class="font-medium text-gray-600 w-24 flex-shrink-0">Age:</span>
+            <span
+              class="field-value"
+              :class="statusAgeClass"
+            >
+              {{ statusAgeText }}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -130,6 +140,7 @@
         class="status-summary-content text-gray-700 text-sm leading-relaxed"
         v-html="sanitizedStatusSummary"
       ></div>
+    </div>
     </div>
   </div>
 </template>
@@ -312,6 +323,49 @@ export default {
 </script>
 
 <style scoped>
+/* Container query setup */
+.card-wrapper {
+  container-type: inline-size;
+  container-name: card;
+}
+
+/* Default: single column layout (stacked) */
+.metadata-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.metadata-col {
+  /* No special styling in single column mode */
+}
+
+/* Wide cards: two column layout with divider */
+@container card (min-width: 400px) {
+  .metadata-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+
+  .metadata-col {
+    padding: 0.5rem;
+  }
+
+  .metadata-col:first-child {
+    border-right: 1px solid #e5e7eb;
+    padding-left: 0;
+  }
+
+  .metadata-col:last-child {
+    padding-right: 0;
+    background-color: #f9fafb;
+    margin: -0.5rem -1rem -0.5rem 0;
+    padding: 0.5rem 1rem 0.5rem 0.75rem;
+    border-radius: 0 0.5rem 0.5rem 0;
+  }
+}
+
 /* Slow spin animation for flip icon */
 @keyframes spin-slow {
   from {

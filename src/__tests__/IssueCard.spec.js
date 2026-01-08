@@ -257,7 +257,7 @@ describe('IssueCard', () => {
         props: { issue: issueWithoutReleaseType }
       })
 
-      expect(wrapper.text()).toContain('Release Type:')
+      expect(wrapper.text()).toContain('Rel. Type:')
       const releaseTypeValue = wrapper.find('.field-release-type .field-value')
       expect(releaseTypeValue.classes()).toContain('bg-red-100')
       expect(releaseTypeValue.classes()).toContain('text-red-900')
@@ -277,7 +277,7 @@ describe('IssueCard', () => {
         props: { issue: issueWithoutTargetRelease }
       })
 
-      expect(wrapper.text()).toContain('Target Release:')
+      expect(wrapper.text()).toContain('Target:')
       const targetReleaseValue = wrapper.find('.field-target-release .field-value')
       expect(targetReleaseValue.classes()).toContain('bg-red-100')
       expect(targetReleaseValue.classes()).toContain('text-red-900')
@@ -297,7 +297,7 @@ describe('IssueCard', () => {
         props: { issue: issueWithEmptyTargetRelease }
       })
 
-      expect(wrapper.text()).toContain('Target Release:')
+      expect(wrapper.text()).toContain('Target:')
       const targetReleaseValue = wrapper.find('.field-target-release .field-value')
       expect(targetReleaseValue.classes()).toContain('bg-red-100')
       expect(targetReleaseValue.classes()).toContain('text-red-900')
@@ -356,8 +356,8 @@ describe('IssueCard', () => {
 
       // All three fields should be visible
       expect(wrapper.text()).toContain('Team:')
-      expect(wrapper.text()).toContain('Release Type:')
-      expect(wrapper.text()).toContain('Target Release:')
+      expect(wrapper.text()).toContain('Rel. Type:')
+      expect(wrapper.text()).toContain('Target:')
     })
   })
 
@@ -373,7 +373,7 @@ describe('IssueCard', () => {
         props: { issue: issueWithAge }
       })
 
-      expect(wrapper.text()).toContain('Status Age:')
+      expect(wrapper.text()).toContain('Age:')
       expect(wrapper.text()).toContain('days ago')
     })
 
@@ -387,7 +387,7 @@ describe('IssueCard', () => {
         props: { issue: issueWithoutUpdate }
       })
 
-      expect(wrapper.text()).toContain('Status Age:')
+      expect(wrapper.text()).toContain('Age:')
       expect(wrapper.text()).toContain('No summary')
     })
 
@@ -661,7 +661,7 @@ describe('IssueCard', () => {
         props: { issue: issueWithColorStatus }
       })
 
-      expect(wrapper.text()).toContain('Color Status:')
+      expect(wrapper.text()).toContain('Color:')
     })
 
     it('highlights Green color status in green text', () => {
