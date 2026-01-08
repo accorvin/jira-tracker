@@ -34,9 +34,18 @@
 
         <!-- Content -->
         <div class="p-6 overflow-y-auto flex-grow">
-          <p class="text-gray-600 mb-6">
+          <p class="text-gray-600 mb-4">
             These rules help maintain issue hygiene and ensure clear communication across the team.
             Issues violating these rules will display a pulsing warning icon.
+          </p>
+          <p class="text-gray-600 mb-6">
+            For more details on our Jira processes and standards, consult
+            <a
+              href="https://docs.google.com/document/d/1JBqlEFt85I_xJ-u55hYEOA93Ufudw5hb3W8n8yW-SXs/edit?usp=sharing"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-blue-600 hover:text-blue-800 underline"
+            >this document</a>.
           </p>
 
           <div class="space-y-4">
