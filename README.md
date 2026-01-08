@@ -2,6 +2,31 @@
 
 A secure, serverless Vue 3 web application that displays Jira issues as cards on a kanban board with Firebase authentication and AWS Amplify backend.
 
+---
+
+## Quick Start
+
+Get the UI running locally in 4 steps:
+
+```bash
+# 1. Clone and install
+git clone git@github.com:accorvin/jira-tracker.git
+cd jira-tracker
+npm install
+
+# 2. Pull AWS backend config (requires AWS credentials - see Full Setup below)
+AWS_PROFILE=ais amplify pull --appId db8qbfhkw24dz --envName dev
+
+# 3. Start the dev server
+npm run dev
+
+# 4. Open http://localhost:5173 and sign in with your @redhat.com Google account
+```
+
+> **First time?** You'll need AWS credentials configured first. See [Full Setup Guide](#new-developer-setup) below.
+
+---
+
 ## Features
 
 - **Secure Authentication**: Firebase Auth with Google OAuth, restricted to @redhat.com emails
@@ -43,36 +68,124 @@ A secure, serverless Vue 3 web application that displays Jira issues as cards on
 - **Infrastructure**: AWS Amplify CLI
 - **Testing**: Vitest
 
-## Getting Started
+---
+
+## New Developer Setup
+
+This section provides step-by-step instructions for setting up the project from scratch on macOS.
 
 ### Prerequisites
 
-- Node.js (v18 or higher)
-- AWS Account with Amplify CLI configured
-- Firebase project with Google Auth enabled
-- Jira API token
+You'll need the following tools and access:
 
-### Installation
+| Requirement | Description |
+|-------------|-------------|
+| **Homebrew** | macOS package manager |
+| **Node.js 18+** | JavaScript runtime (developed with v23.9.0) |
+| **AWS CLI** | Amazon Web Services command line |
+| **Amplify CLI** | AWS Amplify deployment tool |
+| **Git** | Version control |
+| **@redhat.com email** | Required for Firebase authentication |
+| **Red Hat Jira access** | Access to issues.redhat.com |
 
-1. Install dependencies:
+### Step 1: Install Required Tools
+
+If you don't have these tools installed, run:
+
 ```bash
+# Install Homebrew (if not installed)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install Node.js (v18 or higher required, v23+ recommended)
+brew install node
+
+# Verify Node version
+node --version  # Should be v18.x or higher
+
+# Install AWS CLI
+brew install awscli
+
+# Install Amplify CLI globally
+npm install -g @aws-amplify/cli
+```
+
+### Step 2: Configure AWS Credentials
+
+This project uses an AWS profile named `ais`. You need to configure this profile with your AWS credentials.
+
+```bash
+# Configure the 'ais' profile
+aws configure --profile ais
+```
+
+You'll be prompted for:
+- **AWS Access Key ID**: Get from your AWS administrator
+- **AWS Secret Access Key**: Get from your AWS administrator
+- **Default region name**: `us-east-1`
+- **Default output format**: `json`
+
+Verify the profile works:
+
+```bash
+AWS_PROFILE=ais aws sts get-caller-identity
+```
+
+> **IMPORTANT**: All AWS and Amplify commands in this project MUST be prefixed with `AWS_PROFILE=ais`
+
+### Step 3: Clone and Install
+
+```bash
+# Clone the repository
+git clone git@github.com:accorvin/jira-tracker.git
+cd jira-tracker
+
+# Install dependencies
 npm install
 ```
 
-2. Set up Firebase:
-   - Create a Firebase project at https://console.firebase.google.com
-   - Enable Google authentication
-   - Add your domain to Authorized domains
-   - Copy your Firebase config values
+### Step 4: Pull Amplify Backend Configuration
 
-3. Set up AWS Amplify:
+This downloads the AWS backend configuration to your local machine:
+
 ```bash
-amplify pull --appId YOUR_APP_ID --envName dev
+AWS_PROFILE=ais amplify pull --appId db8qbfhkw24dz --envName dev
 ```
 
-4. Create SSM Parameter for Jira token:
+When prompted:
+- Choose your default editor
+- Accept defaults for build settings (or customize)
+- Choose "Yes" to modify the backend
+
+This creates `src/aws-exports.js` and `src/amplifyconfiguration.json` (both gitignored).
+
+### Step 5: S3 Bucket (No Action Needed)
+
+The Lambda functions store Jira data in a shared S3 bucket (`acorvin-jira-tracker-issues-dev`). This is configured in `amplify/backend/function/jiraFetcher/parameters.json`.
+
+**Important**: All developers and the deployed application share this same bucket. When you click Refresh in the app, it updates data for everyone.
+
+> **Note**: The bucket name is currently hardcoded. If you need to change it (e.g., for a separate environment), coordinate with the team first - running `amplify push` with a different bucket would affect all users of the deployed app.
+
+### Step 6: Jira API Token
+
+The Lambda function needs a Jira API token to fetch issues. Check if one already exists:
+
 ```bash
-aws ssm put-parameter \
+AWS_PROFILE=ais aws ssm get-parameter \
+  --name "/jira-tracker-app/dev/jira-token" \
+  --with-decryption \
+  --region us-east-1
+```
+
+If it doesn't exist (or you need your own), create one:
+
+1. Go to https://issues.redhat.com/secure/ViewProfile.jspa
+2. Click **Personal Access Tokens** in the left sidebar
+3. Create a new token with appropriate permissions
+4. Store it in AWS SSM:
+
+```bash
+AWS_PROFILE=ais aws ssm put-parameter \
   --name "/jira-tracker-app/dev/jira-token" \
   --description "Jira API token for jira-tracker-app dev environment" \
   --value "YOUR_JIRA_TOKEN" \
@@ -80,28 +193,63 @@ aws ssm put-parameter \
   --region us-east-1
 ```
 
-5. Configure non-sensitive parameters in `amplify/backend/function/jiraFetcher/parameters.json`:
-   - `jiraHost`: `https://issues.redhat.com`
-   - `s3Bucket`: `jira-tracker-issues-dev`
-   - `firebaseProjectId`: Your Firebase project ID
+### Step 7: Run the Application
 
-6. Deploy the backend:
-```bash
-amplify push
-```
-
-### Running the Application
-
-1. Start the development server:
 ```bash
 npm run dev
 ```
 
-2. Open http://localhost:5173 in your browser
+Open http://localhost:5173 in your browser.
 
-3. Sign in with your @redhat.com Google account
+1. Sign in with your @redhat.com Google account
+2. Click the **Refresh** button in the header to fetch data from Jira
 
-4. Click the **Refresh** button in the header to fetch data from Jira
+---
+
+## Important Notes
+
+### Dev vs Production Backend
+
+When running locally (`npm run dev`), the frontend connects to the **production API Gateway endpoint** (`https://8jez4fgp80.execute-api.us-east-1.amazonaws.com/dev`). This means:
+
+- Local development uses the same Lambda functions as the deployed app
+- Data refreshed locally affects the production S3 bucket
+- There is no separate "local-only" backend
+
+This is intentional - the backend is serverless and doesn't need local hosting.
+
+### AWS Profile Requirement
+
+**ALWAYS** prefix AWS and Amplify commands with `AWS_PROFILE=ais`:
+
+```bash
+# Correct
+AWS_PROFILE=ais amplify push
+AWS_PROFILE=ais aws s3 ls
+
+# Incorrect - will use wrong AWS account
+amplify push
+aws s3 ls
+```
+
+---
+
+## Development
+
+### Running Tests
+
+```bash
+npm run test        # Run once
+npm run test:watch  # Watch mode
+```
+
+### Test-Driven Development (TDD)
+
+This project follows TDD practices:
+1. Write tests before implementing functionality
+2. Run tests to confirm they fail
+3. Implement the minimum code to make tests pass
+4. Refactor if needed, ensuring tests still pass
 
 ### Building for Production
 
@@ -113,16 +261,10 @@ npm run preview
 ### Deploying to AWS Amplify Hosting
 
 ```bash
-amplify add hosting
-amplify publish
+AWS_PROFILE=ais amplify publish
 ```
 
-## Testing
-
-```bash
-npm run test        # Run once
-npm run test:watch  # Watch mode
-```
+---
 
 ## Project Structure
 
@@ -149,30 +291,22 @@ npm run test:watch  # Watch mode
 ├── amplify/
 │   └── backend/
 │       └── function/
-│           ├── jiraFetcher/    # Lambda: Fetch from Jira → S3
+│           ├── jiraFetcher/    # Lambda: Fetch from Jira -> S3
 │           └── issuesReader/   # Lambda: Read from S3
-├── CLAUDE.md                   # Project documentation
-└── plan-auth-firebase.md       # Implementation plan
+├── CLAUDE.md                   # AI assistant instructions
+└── .env.example                # Configuration documentation
 ```
 
-## Development
-
-This project follows Test-Driven Development (TDD) practices:
-1. Write tests before implementing functionality
-2. Run tests to confirm they fail
-3. Implement the minimum code to make tests pass
-4. Refactor if needed, ensuring tests still pass
+---
 
 ## Configuration
 
 ### Jira Filters
 
-Edit the Lambda function `amplify/backend/function/jiraFetcher/src/app.js` to customize:
+Edit `amplify/backend/function/jiraFetcher/src/app.js` to customize:
 - **Projects**: RHAISTRAT, RHOAIENG
 - **Components**: Fine Tuning, KubeRay, Feature Store, Training Ray, Training Kubeflow, AI Pipelines
 - **Issue Types**: Feature, Initiative
-
-Target versions are managed per-release in the UI.
 
 ### Status Mapping
 
@@ -182,6 +316,8 @@ The kanban board maps Jira statuses to columns:
 - **In Progress**: In Progress, Review, Testing
 - **Done**: Resolved, Closed
 
+---
+
 ## Security
 
 - **Authentication**: Firebase Auth with @redhat.com domain restriction
@@ -189,72 +325,82 @@ The kanban board maps Jira statuses to columns:
 - **Secrets**: Jira token stored in AWS Systems Manager Parameter Store (SecureString) with KMS encryption
 - **Network**: HTTPS enforced on all endpoints
 - **Storage**: S3 bucket accessed only by authenticated Lambda functions
-- **Least Privilege**: Lambda execution role has minimal IAM permissions (S3, SSM Parameter Store)
+- **Least Privilege**: Lambda execution role has minimal IAM permissions
+
+---
 
 ## API Endpoints
 
 **Base URL**: `https://8jez4fgp80.execute-api.us-east-1.amazonaws.com/dev`
 
-### POST /refresh
-Fetch issues from Jira and upload to S3.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | /refresh | Fetch issues from Jira and upload to S3 |
+| GET | /issues/:release | Get issues for a specific release |
+| GET | /releases | Get list of configured releases |
+| POST | /releases | Save list of releases |
+| GET | /intake | Get intake features |
 
-**Headers**:
-- `Authorization: Bearer <firebase-id-token>`
-- `Content-Type: application/json`
+All endpoints require `Authorization: Bearer <firebase-id-token>` header.
 
-**Body**:
-```json
-{
-  "releases": [
-    { "name": "rhoai-3.2" },
-    { "name": "rhoai-3.3" }
-  ]
-}
-```
-
-**Response**:
-```json
-{
-  "success": true,
-  "results": [
-    { "release": "rhoai-3.2", "count": 42 },
-    { "release": "rhoai-3.3", "count": 38 }
-  ],
-  "totalCount": 80
-}
-```
-
-### GET /issues/:release
-Get issues for a specific release from S3.
-
-**Headers**:
-- `Authorization: Bearer <firebase-id-token>`
-
-**Response**:
-```json
-{
-  "lastUpdated": "2025-12-12T19:30:00Z",
-  "issues": [...]
-}
-```
+---
 
 ## Troubleshooting
 
+### "Command not found: amplify"
+
+```bash
+npm install -g @aws-amplify/cli
+```
+
+### "Profile ais not found"
+
+Configure the AWS profile:
+```bash
+aws configure --profile ais
+```
+
+### "amplify pull" fails with authentication error
+
+Ensure your AWS credentials are valid:
+```bash
+AWS_PROFILE=ais aws sts get-caller-identity
+```
+
 ### Authentication Issues
 - Ensure you're using a @redhat.com email address
-- Check Firebase Console → Authentication → Authorized domains includes your domain
+- Check Firebase Console -> Authentication -> Authorized domains
 - Clear browser cache and try signing in again
 
 ### Refresh Button Not Working
 - Check AWS CloudWatch Logs for Lambda errors
-- Verify SSM parameter `/jira-tracker-app/dev/jira-token` exists and contains valid token
+- Verify SSM parameter `/jira-tracker-app/dev/jira-token` exists
 - Ensure Lambda has SSM and S3 permissions
-- Look for "Successfully fetched Jira token from SSM Parameter Store" in CloudWatch logs
 
 ### No Data Displaying
 - Click the Refresh button first to populate S3
 - Check browser console for API errors
-- Verify S3 bucket name matches Lambda environment variable
+- Verify S3 bucket name matches Lambda configuration
+
+### Node Version Issues
+
+Ensure you have Node.js v18 or higher:
+```bash
+node --version  # Should be v18.x or higher
+```
+
+---
+
+## Using Claude Code
+
+This project is configured for AI-assisted development with Claude Code. See:
+
+- **CLAUDE.md**: Project-specific instructions and patterns
+- **AGENTS.md**: Guidelines for AI agent behavior
+
+When using Claude Code, it will automatically follow the TDD practices and coding conventions defined in these files.
+
+---
 
 ## License
 
