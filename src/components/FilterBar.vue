@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-white rounded-lg shadow-md p-3 mb-3">
+  <div class="bg-white rounded-lg shadow-sm p-2 mb-2">
     <div class="flex flex-wrap lg:flex-nowrap gap-2 items-center">
       <div class="flex items-center gap-2 flex-1 min-w-0">
         <label class="text-xs font-medium text-gray-500 whitespace-nowrap">Assignee:</label>

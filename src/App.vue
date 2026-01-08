@@ -2,10 +2,10 @@
   <AuthGuard>
     <div id="app" class="min-h-screen bg-gray-50">
     <header class="bg-primary-700 text-white shadow-lg">
-      <div class="container mx-auto px-6 py-6 flex items-center justify-between">
-        <div class="flex items-center gap-4">
-          <img src="/redhat-logo.svg" alt="Red Hat" class="h-12" />
-          <h1 class="text-3xl font-bold">RHOAI T&E Features-at-a-Glance</h1>
+      <div class="container mx-auto px-6 py-2 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <img src="/redhat-logo.svg" alt="Red Hat" class="h-8" />
+          <h1 class="text-xl font-bold">RHOAI T&E Features-at-a-Glance</h1>
         </div>
         <div class="flex items-center gap-4">
           <div v-if="lastUpdated" class="text-sm text-primary-100">
@@ -14,7 +14,7 @@
           <button
             @click="refreshData"
             :disabled="isRefreshing || releases.length === 0"
-            class="px-4 py-2 bg-white text-primary-700 rounded-md font-medium hover:bg-primary-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            class="px-3 py-1 text-sm bg-white text-primary-700 rounded-md font-medium hover:bg-primary-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
           >
             <svg
               v-if="isRefreshing"
@@ -48,7 +48,7 @@
               <!-- Show initials if no photo or photo failed to load -->
               <div
                 v-if="!authUser.photoURL || avatarLoadError"
-                class="h-10 w-10 rounded-full border-2 border-white bg-white text-primary-700 flex items-center justify-center font-bold text-sm"
+                class="h-8 w-8 rounded-full border-2 border-white bg-white text-primary-700 flex items-center justify-center font-bold text-xs"
               >
                 {{ getUserInitials(authUser) }}
               </div>
@@ -57,7 +57,7 @@
                 v-else
                 :src="authUser.photoURL"
                 :alt="authUser.displayName || authUser.email"
-                class="h-10 w-10 rounded-full border-2 border-white"
+                class="h-8 w-8 rounded-full border-2 border-white"
                 @error="avatarLoadError = true"
               />
             </button>
@@ -108,7 +108,7 @@
         @delete="confirmDeleteRelease"
       />
 
-      <div class="flex-1 px-6 py-8 relative">
+      <div class="flex-1 px-4 py-4 relative">
         <FilterBar
           v-if="allIssues.length > 0"
           :issues="allIssues"

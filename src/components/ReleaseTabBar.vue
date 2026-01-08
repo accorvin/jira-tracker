@@ -1,12 +1,12 @@
 <template>
-  <div class="flex items-center gap-2 bg-gray-100 px-6 py-3 border-b border-gray-200">
+  <div class="flex items-center gap-2 bg-gray-100 px-6 py-2 border-b border-gray-200">
     <button
       v-for="release in sortedReleases"
       :key="release.name"
       data-testid="release-tab"
       @click="$emit('select', release.name)"
       :class="[
-        'px-4 py-2 rounded-md font-medium transition-colors',
+        'px-3 py-1 text-sm rounded-md font-medium transition-colors',
         release.name === selectedRelease
           ? 'tab-selected bg-primary-700 text-white'
           : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
@@ -17,7 +17,7 @@
     <button
       data-testid="add-release-btn"
       @click="$emit('add')"
-      class="px-4 py-2 rounded-md font-medium text-primary-700 hover:bg-primary-50 border border-dashed border-primary-300 transition-colors"
+      class="px-3 py-1 text-sm rounded-md font-medium text-primary-700 hover:bg-primary-50 border border-dashed border-primary-300 transition-colors"
     >
       + Add
     </button>
