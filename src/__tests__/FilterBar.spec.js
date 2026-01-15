@@ -15,6 +15,7 @@ describe('FilterBar', () => {
       assignee: 'John Doe',
       status: 'In Progress',
       team: 'Fine Tuning',
+      components: ['AI Pipelines', 'KubeRay'],
       releaseType: 'GA',
       targetRelease: 'rhoai-3.2'
     },
@@ -25,6 +26,7 @@ describe('FilterBar', () => {
       assignee: 'Jane Smith',
       status: 'New',
       team: 'KubeRay',
+      components: ['Training Ray'],
       releaseType: 'Tech Preview',
       targetRelease: 'rhoai-3.2'
     },
@@ -35,6 +37,7 @@ describe('FilterBar', () => {
       assignee: null,
       status: 'Resolved',
       team: null,
+      components: [],
       releaseType: null,
       targetRelease: 'rhoai-3.3'
     }
@@ -45,7 +48,10 @@ describe('FilterBar', () => {
       props: { issues: mockIssues }
     })
 
+    // Should have select elements for assignee, status, type
     expect(wrapper.find('select').exists()).toBe(true)
+    // And multi-select buttons for team and component
+    expect(wrapper.find('button').exists()).toBe(true)
   })
 
   it('populates assignee filter options from issue data', () => {
@@ -69,14 +75,33 @@ describe('FilterBar', () => {
     expect(html).toContain('Resolved')
   })
 
-  it('populates team filter options from issue data', () => {
+  it('populates team filter options from issue data', async () => {
     const wrapper = mount(FilterBar, {
       props: { issues: mockIssues }
     })
 
+    // Click the team multi-select to open it
+    const teamDropdown = wrapper.findAllComponents({ name: 'MultiSelectDropdown' })[0]
+    await teamDropdown.find('button').trigger('click')
+
     const html = wrapper.html()
     expect(html).toContain('Fine Tuning')
     expect(html).toContain('KubeRay')
+  })
+
+  it('populates component filter options from issue data', async () => {
+    const wrapper = mount(FilterBar, {
+      props: { issues: mockIssues }
+    })
+
+    // Click the component multi-select to open it
+    const componentDropdown = wrapper.findAllComponents({ name: 'MultiSelectDropdown' })[1]
+    await componentDropdown.find('button').trigger('click')
+
+    const html = wrapper.html()
+    expect(html).toContain('AI Pipelines')
+    expect(html).toContain('KubeRay')
+    expect(html).toContain('Training Ray')
   })
 
   it('populates issue type filter options from issue data', () => {
@@ -105,13 +130,14 @@ describe('FilterBar', () => {
       props: { issues: mockIssues }
     })
 
-    const clearButton = wrapper.find('button')
-    expect(clearButton.exists()).toBe(true)
+    const buttons = wrapper.findAll('button')
+    const clearButton = buttons.find(b => b.text().includes('Clear'))
+    expect(clearButton).toBeTruthy()
     expect(clearButton.text()).toContain('Clear')
   })
 
   describe('Filter Persistence', () => {
-    const localStorageKey = 'kanban-filters'
+    const localStorageKey = 'kanban-filters-v2'
 
     beforeEach(() => {
       // Clear localStorage before each test
@@ -129,9 +155,10 @@ describe('FilterBar', () => {
 
     it('loads filters from localStorage on mount', () => {
       const savedFilters = {
+        teams: ['Fine Tuning'],
+        components: ['AI Pipelines'],
         assignee: 'John Doe',
         status: 'In Progress',
-        team: 'Fine Tuning',
         issueType: 'Feature'
       }
       localStorage.setItem(localStorageKey, JSON.stringify(savedFilters))
@@ -142,7 +169,8 @@ describe('FilterBar', () => {
 
       expect(wrapper.vm.filters.assignee).toBe('John Doe')
       expect(wrapper.vm.filters.status).toBe('In Progress')
-      expect(wrapper.vm.filters.team).toBe('Fine Tuning')
+      expect(wrapper.vm.filters.teams).toEqual(['Fine Tuning'])
+      expect(wrapper.vm.filters.components).toEqual(['AI Pipelines'])
       expect(wrapper.vm.filters.issueType).toBe('Feature')
     })
 
@@ -165,23 +193,23 @@ describe('FilterBar', () => {
       })
 
       const selects = wrapper.findAll('select')
+      // Order: assignee, status, type (Team and Component are now multi-select, not select)
       await selects[0].setValue('Jane Smith')
       await selects[1].setValue('New')
-      await selects[2].setValue('KubeRay')
-      await selects[3].setValue('Initiative')
+      await selects[2].setValue('Initiative')
 
       const savedData = JSON.parse(localStorage.getItem(localStorageKey))
       expect(savedData.assignee).toBe('Jane Smith')
       expect(savedData.status).toBe('New')
-      expect(savedData.team).toBe('KubeRay')
       expect(savedData.issueType).toBe('Initiative')
     })
 
     it('removes filters from localStorage when cleared', async () => {
       const savedFilters = {
+        teams: ['Fine Tuning'],
+        components: ['AI Pipelines'],
         assignee: 'John Doe',
         status: 'In Progress',
-        team: 'Fine Tuning',
         issueType: 'Feature'
       }
       localStorage.setItem(localStorageKey, JSON.stringify(savedFilters))
@@ -190,7 +218,8 @@ describe('FilterBar', () => {
         props: { issues: mockIssues }
       })
 
-      const clearButton = wrapper.find('button')
+      const buttons = wrapper.findAll('button')
+      const clearButton = buttons.find(b => b.text().includes('Clear'))
       await clearButton.trigger('click')
 
       expect(localStorage.removeItem).toHaveBeenCalledWith(localStorageKey)
@@ -203,7 +232,8 @@ describe('FilterBar', () => {
 
       expect(wrapper.vm.filters.assignee).toBe('')
       expect(wrapper.vm.filters.status).toBe('')
-      expect(wrapper.vm.filters.team).toBe('')
+      expect(wrapper.vm.filters.teams).toEqual([])
+      expect(wrapper.vm.filters.components).toEqual([])
       expect(wrapper.vm.filters.issueType).toBe('')
     })
 
@@ -216,7 +246,8 @@ describe('FilterBar', () => {
 
       expect(wrapper.vm.filters.assignee).toBe('')
       expect(wrapper.vm.filters.status).toBe('')
-      expect(wrapper.vm.filters.team).toBe('')
+      expect(wrapper.vm.filters.teams).toEqual([])
+      expect(wrapper.vm.filters.components).toEqual([])
       expect(wrapper.vm.filters.issueType).toBe('')
     })
   })

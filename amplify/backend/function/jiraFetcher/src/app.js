@@ -66,14 +66,6 @@ async function getJiraToken() {
   }
 }
 const PROJECTS = ['RHAISTRAT', 'RHOAIENG'];
-const COMPONENTS = [
-  'Fine Tuning',
-  'KubeRay',
-  'Feature Store',
-  'Training Ray',
-  'Training Kubeflow',
-  'AI Pipelines'
-];
 const ISSUE_TYPES = ['Feature', 'Initiative'];
 
 const CUSTOM_FIELDS = {
@@ -92,14 +84,14 @@ const CUSTOM_FIELDS = {
 
 /**
  * Build JQL query string
+ * Fetches all features/initiatives for the project and release (no component filter)
  */
 function buildJqlQuery(targetRelease) {
   const projectFilter = `project IN (${PROJECTS.join(', ')})`;
-  const componentFilter = `component IN (${COMPONENTS.map(c => `'${c}'`).join(', ')})`;
   const issueTypeFilter = `issuetype IN (${ISSUE_TYPES.join(', ')})`;
   const targetVersionFilter = `"Target Version" = ${targetRelease}`;
 
-  return `${projectFilter} AND ${componentFilter} AND ${issueTypeFilter} AND ${targetVersionFilter}`;
+  return `${projectFilter} AND ${issueTypeFilter} AND ${targetVersionFilter}`;
 }
 
 /**
@@ -110,7 +102,7 @@ async function fetchIssuesFromJira(targetRelease) {
 
   const jql = buildJqlQuery(targetRelease);
   const fields = [
-    'key', 'summary', 'issuetype', 'assignee', 'status', 'created', 'issuelinks',
+    'key', 'summary', 'issuetype', 'assignee', 'status', 'created', 'issuelinks', 'components',
     CUSTOM_FIELDS.team,
     CUSTOM_FIELDS.releaseType,
     CUSTOM_FIELDS.targetRelease,
@@ -283,6 +275,11 @@ function transformIssue(issue, rfeMap = {}) {
   const statusSummary = renderedFields[CUSTOM_FIELDS.statusSummary] ||
     serializeField(fields[CUSTOM_FIELDS.statusSummary]);
 
+  // Extract components as an array of names
+  const components = fields.components && Array.isArray(fields.components)
+    ? fields.components.map(c => c.name).filter(Boolean)
+    : [];
+
   // Get clones links for RFE checking
   // Only consider issues from RHAIRFE project as actual RFEs
   const clonesLinks = getClonesLinks(issue);
@@ -309,6 +306,7 @@ function transformIssue(issue, rfeMap = {}) {
     assignee: fields.assignee?.displayName || null,
     status: fields.status?.name || null,
     team: serializeField(fields[CUSTOM_FIELDS.team]),
+    components: components,
     releaseType: serializeField(fields[CUSTOM_FIELDS.releaseType]),
     targetRelease: serializeListField(fields[CUSTOM_FIELDS.targetRelease]),
     statusSummary: statusSummary,
@@ -393,15 +391,15 @@ function extractRfeKeys(rawIssues) {
 
 /**
  * Build JQL query for intake features (New status, no target release)
+ * Fetches all features/initiatives in New status (no component filter)
  */
 function buildIntakeFeaturesJqlQuery() {
   const projectFilter = `project IN (${PROJECTS.join(', ')})`;
-  const componentFilter = `component IN (${COMPONENTS.map(c => `'${c}'`).join(', ')})`;
   const issueTypeFilter = `issuetype IN (${ISSUE_TYPES.join(', ')})`;
   const statusFilter = 'status = New';
   const noTargetRelease = '"Target Version" IS EMPTY';
 
-  return `${projectFilter} AND ${componentFilter} AND ${issueTypeFilter} AND ${statusFilter} AND ${noTargetRelease}`;
+  return `${projectFilter} AND ${issueTypeFilter} AND ${statusFilter} AND ${noTargetRelease}`;
 }
 
 /**

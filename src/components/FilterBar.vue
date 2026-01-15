@@ -2,6 +2,28 @@
   <div class="bg-white rounded-lg shadow-sm p-2 mb-2">
     <div class="flex flex-wrap lg:flex-nowrap gap-2 items-center">
       <div class="flex items-center gap-2 flex-1 min-w-0">
+        <label class="text-xs font-medium text-gray-500 whitespace-nowrap">Team:</label>
+        <MultiSelectDropdown
+          v-model="filters.teams"
+          :options="teamOptions"
+          placeholder="All Teams"
+          class="flex-1 min-w-0"
+          @update:modelValue="emitFilterChange"
+        />
+      </div>
+
+      <div class="flex items-center gap-2 flex-1 min-w-0">
+        <label class="text-xs font-medium text-gray-500 whitespace-nowrap">Component:</label>
+        <MultiSelectDropdown
+          v-model="filters.components"
+          :options="componentOptions"
+          placeholder="All Components"
+          class="flex-1 min-w-0"
+          @update:modelValue="emitFilterChange"
+        />
+      </div>
+
+      <div class="flex items-center gap-2 flex-1 min-w-0">
         <label class="text-xs font-medium text-gray-500 whitespace-nowrap">Assignee:</label>
         <select
           v-model="filters.assignee"
@@ -25,20 +47,6 @@
           <option value="">All</option>
           <option v-for="status in statusOptions" :key="status" :value="status">
             {{ status }}
-          </option>
-        </select>
-      </div>
-
-      <div class="flex items-center gap-2 flex-1 min-w-0">
-        <label class="text-xs font-medium text-gray-500 whitespace-nowrap">Team:</label>
-        <select
-          v-model="filters.team"
-          @change="emitFilterChange"
-          class="flex-1 min-w-0 px-2 py-1 text-sm bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none"
-        >
-          <option value="">All</option>
-          <option v-for="team in teamOptions" :key="team" :value="team">
-            {{ team }}
           </option>
         </select>
       </div>
@@ -68,15 +76,24 @@
 </template>
 
 <script>
-const STORAGE_KEY = 'kanban-filters'
+import MultiSelectDropdown from './MultiSelectDropdown.vue'
+
+const STORAGE_KEY = 'kanban-filters-v2'
 
 export default {
   name: 'FilterBar',
+  components: {
+    MultiSelectDropdown
+  },
   props: {
     issues: {
       type: Array,
       required: true,
       default: () => []
+    },
+    initialFilters: {
+      type: Object,
+      default: null
     }
   },
   data() {
@@ -85,12 +102,33 @@ export default {
     }
   },
   mounted() {
-    // Emit initial filter state if filters were loaded from storage
-    if (this.hasPersistedFilters()) {
-      this.emitFilterChange()
+    // Apply initial filters from URL if provided
+    if (this.initialFilters) {
+      this.filters = { ...this.filters, ...this.initialFilters }
+      this.saveFilters()
     }
+    // Emit initial filter state
+    this.emitFilterChange()
   },
   computed: {
+    teamOptions() {
+      const teams = new Set()
+      this.issues.forEach(issue => {
+        if (issue.team) {
+          teams.add(issue.team)
+        }
+      })
+      return Array.from(teams).sort()
+    },
+    componentOptions() {
+      const components = new Set()
+      this.issues.forEach(issue => {
+        if (issue.components && Array.isArray(issue.components)) {
+          issue.components.forEach(c => components.add(c))
+        }
+      })
+      return Array.from(components).sort()
+    },
     assigneeOptions() {
       const assignees = new Set()
       this.issues.forEach(issue => {
@@ -109,15 +147,6 @@ export default {
       })
       return Array.from(statuses).sort()
     },
-    teamOptions() {
-      const teams = new Set()
-      this.issues.forEach(issue => {
-        if (issue.team) {
-          teams.add(issue.team)
-        }
-      })
-      return Array.from(teams).sort()
-    },
     issueTypeOptions() {
       const types = new Set()
       this.issues.forEach(issue => {
@@ -133,21 +162,26 @@ export default {
       try {
         const saved = localStorage.getItem(STORAGE_KEY)
         if (saved) {
-          return JSON.parse(saved)
+          const parsed = JSON.parse(saved)
+          // Ensure arrays exist for multi-select fields
+          return {
+            teams: parsed.teams || [],
+            components: parsed.components || [],
+            assignee: parsed.assignee || '',
+            status: parsed.status || '',
+            issueType: parsed.issueType || ''
+          }
         }
       } catch (error) {
         console.error('Failed to load filters from localStorage:', error)
       }
       return {
+        teams: [],
+        components: [],
         assignee: '',
         status: '',
-        team: '',
         issueType: ''
       }
-    },
-    hasPersistedFilters() {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      return saved !== null
     },
     saveFilters() {
       try {
@@ -162,9 +196,10 @@ export default {
     },
     clearFilters() {
       this.filters = {
+        teams: [],
+        components: [],
         assignee: '',
         status: '',
-        team: '',
         issueType: ''
       }
       try {

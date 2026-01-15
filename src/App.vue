@@ -112,6 +112,7 @@
         <FilterBar
           v-if="allIssues.length > 0"
           :issues="allIssues"
+          :initialFilters="initialFiltersFromUrl"
           @filter-change="handleFilterChange"
         />
 
@@ -211,11 +212,13 @@ export default {
       isRefreshing: false,
       isLoading: false,
       filters: {
+        teams: [],
+        components: [],
         assignee: '',
         status: '',
-        team: '',
         issueType: ''
       },
+      initialFiltersFromUrl: null,
       releases: [],
       selectedRelease: null,
       showReleaseModal: false,
@@ -255,6 +258,8 @@ export default {
   mounted() {
     // Close user menu when clicking outside
     document.addEventListener('click', this.handleClickOutside)
+    // Parse URL parameters for initial filters
+    this.initialFiltersFromUrl = this.parseUrlParams()
   },
   beforeUnmount() {
     document.removeEventListener('click', this.handleClickOutside)
@@ -453,13 +458,24 @@ export default {
 
     applyFilters() {
       this.filteredIssues = this.allIssues.filter(issue => {
+        // Multi-select team filter (OR logic - issue matches if team is in selected list)
+        if (this.filters.teams && this.filters.teams.length > 0) {
+          if (!issue.team || !this.filters.teams.includes(issue.team)) {
+            return false
+          }
+        }
+        // Multi-select component filter (OR logic - issue matches if ANY component is in selected list)
+        if (this.filters.components && this.filters.components.length > 0) {
+          const issueComponents = issue.components || []
+          const hasMatchingComponent = issueComponents.some(c => this.filters.components.includes(c))
+          if (!hasMatchingComponent) {
+            return false
+          }
+        }
         if (this.filters.assignee && issue.assignee !== this.filters.assignee) {
           return false
         }
         if (this.filters.status && issue.status !== this.filters.status) {
-          return false
-        }
-        if (this.filters.team && issue.team !== this.filters.team) {
           return false
         }
         if (this.filters.issueType && issue.issueType !== this.filters.issueType) {
@@ -467,6 +483,8 @@ export default {
         }
         return true
       })
+      // Update URL with current filters
+      this.updateUrlParams()
     },
 
     formatDate(dateString) {
@@ -548,6 +566,72 @@ export default {
 
     handleViewChange(view) {
       this.currentView = view
+    },
+
+    parseUrlParams() {
+      const params = new URLSearchParams(window.location.search)
+      const filters = {}
+
+      // Parse multi-select params (comma-separated)
+      const teams = params.get('teams')
+      if (teams) {
+        filters.teams = teams.split(',').map(t => decodeURIComponent(t))
+      }
+
+      const components = params.get('components')
+      if (components) {
+        filters.components = components.split(',').map(c => decodeURIComponent(c))
+      }
+
+      // Parse single-select params
+      const assignee = params.get('assignee')
+      if (assignee) {
+        filters.assignee = decodeURIComponent(assignee)
+      }
+
+      const status = params.get('status')
+      if (status) {
+        filters.status = decodeURIComponent(status)
+      }
+
+      const issueType = params.get('type')
+      if (issueType) {
+        filters.issueType = decodeURIComponent(issueType)
+      }
+
+      return Object.keys(filters).length > 0 ? filters : null
+    },
+
+    updateUrlParams() {
+      const params = new URLSearchParams()
+
+      // Add multi-select params
+      if (this.filters.teams && this.filters.teams.length > 0) {
+        params.set('teams', this.filters.teams.map(t => encodeURIComponent(t)).join(','))
+      }
+
+      if (this.filters.components && this.filters.components.length > 0) {
+        params.set('components', this.filters.components.map(c => encodeURIComponent(c)).join(','))
+      }
+
+      // Add single-select params
+      if (this.filters.assignee) {
+        params.set('assignee', encodeURIComponent(this.filters.assignee))
+      }
+
+      if (this.filters.status) {
+        params.set('status', encodeURIComponent(this.filters.status))
+      }
+
+      if (this.filters.issueType) {
+        params.set('type', encodeURIComponent(this.filters.issueType))
+      }
+
+      // Update URL without reload
+      const newUrl = params.toString()
+        ? `${window.location.pathname}?${params.toString()}`
+        : window.location.pathname
+      window.history.replaceState({}, '', newUrl)
     }
   }
 }

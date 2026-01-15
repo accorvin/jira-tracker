@@ -83,11 +83,25 @@ Always use human-readable names in the UI and JSON:
 - Token: Stored in AWS SSM Parameter Store at `/jira-tracker-app/dev/jira-token`
 - Issue URL pattern: `https://issues.redhat.com/browse/{KEY}`
 
-### Filters
+### Jira Query Filters
 - Projects: RHAISTRAT, RHOAIENG
-- Components: Fine Tuning, KubeRay, Feature Store, Training Ray, Training Kubeflow, AI Pipelines
 - Issue types: Feature, Initiative
-- Target version: rhoai-3.2
+- Target version: Selected release (e.g., rhoai-3.2)
+
+Note: All features/initiatives for the project are fetched. Component and team filtering is done on the frontend.
+
+### Frontend Filtering
+Users can filter issues by:
+- **Team** (multi-select): Filter by the Jira Team field
+- **Component** (multi-select): Filter by Jira components (issues can have multiple)
+- **Assignee** (single-select): Filter by assigned user
+- **Status** (single-select): Filter by issue status
+- **Type** (single-select): Filter by issue type (Feature/Initiative)
+
+Filters are:
+- Persisted to localStorage (restored on page reload)
+- Reflected in URL parameters for shareable links
+- URL format: `?teams=Team1,Team2&components=Comp1,Comp2&assignee=Name`
 
 ## Testing Conventions
 

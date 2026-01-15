@@ -63,6 +63,7 @@ describe('App', () => {
         assignee: 'John Doe',
         status: 'In Progress',
         team: 'Fine Tuning',
+        components: ['AI Pipelines'],
         releaseType: 'GA',
         targetRelease: 'rhoai-3.2',
         url: 'https://issues.redhat.com/browse/ISSUE-1'
@@ -195,6 +196,7 @@ describe('App', () => {
           assignee: 'John Doe',
           status: 'In Progress',
           team: 'Fine Tuning',
+          components: ['AI Pipelines'],
           releaseType: 'GA',
           targetRelease: 'rhoai-3.2',
           url: 'https://issues.redhat.com/browse/ISSUE-1'
@@ -206,6 +208,7 @@ describe('App', () => {
           assignee: 'Jane Smith',
           status: 'New',
           team: 'KubeRay',
+          components: ['Training Ray'],
           releaseType: 'GA',
           targetRelease: 'rhoai-3.2',
           url: 'https://issues.redhat.com/browse/ISSUE-2'
@@ -239,7 +242,7 @@ describe('App', () => {
     await flushPromises()
 
     const filterBar = wrapper.findComponent(FilterBar)
-    filterBar.vm.$emit('filter-change', { assignee: 'John Doe', status: '', team: '', issueType: '' })
+    filterBar.vm.$emit('filter-change', { teams: [], components: [], assignee: 'John Doe', status: '', issueType: '' })
     await wrapper.vm.$nextTick()
 
     const board = wrapper.findComponent(KanbanBoard)
