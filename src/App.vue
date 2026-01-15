@@ -5,7 +5,7 @@
       <div class="container mx-auto px-6 py-2 flex items-center justify-between">
         <div class="flex items-center gap-3">
           <img src="/redhat-logo.svg" alt="Red Hat" class="h-8" />
-          <h1 class="text-xl font-bold">RHOAI T&E Features-at-a-Glance</h1>
+          <h1 class="text-xl font-bold">OpenShift AI Features-at-a-Glance</h1>
         </div>
         <div class="flex items-center gap-4">
           <div v-if="lastUpdated" class="text-sm text-primary-100">

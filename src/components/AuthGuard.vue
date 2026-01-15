@@ -43,7 +43,7 @@
     <div v-else-if="!user" class="min-h-screen bg-gray-50 flex items-center justify-center">
       <div class="bg-white p-8 rounded-lg shadow-md max-w-md text-center">
         <img src="/redhat-logo.svg" alt="Red Hat" class="h-16 mx-auto mb-6" />
-        <h2 class="text-2xl font-bold text-gray-900 mb-2">RHOAI T&E Features-at-a-Glance</h2>
+        <h2 class="text-2xl font-bold text-gray-900 mb-2">OpenShift AI Features-at-a-Glance</h2>
         <p class="text-gray-600 mb-6">Sign in with your @redhat.com account to continue</p>
         <button
           @click="signIn"

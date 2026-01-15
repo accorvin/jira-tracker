@@ -115,11 +115,11 @@ describe('App', () => {
     expect(logo.attributes('src')).toContain('redhat-logo.svg')
   })
 
-  it('renders page title "RHOAI T&E Features-at-a-Glance"', async () => {
+  it('renders page title "OpenShift AI Features-at-a-Glance"', async () => {
     const wrapper = mount(App)
     await flushPromises()
 
-    expect(wrapper.text()).toContain('RHOAI T&E Features-at-a-Glance')
+    expect(wrapper.text()).toContain('OpenShift AI Features-at-a-Glance')
   })
 
   it('fetches releases on mount', async () => {
