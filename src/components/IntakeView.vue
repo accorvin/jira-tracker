@@ -1,5 +1,31 @@
 <template>
   <main class="container mx-auto px-6 py-8">
+    <!-- Beta Notice Banner -->
+    <div
+      v-if="!bannerDismissed"
+      class="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3"
+    >
+      <svg class="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <div class="flex-1">
+        <p class="text-sm text-amber-800">
+          <strong>This page is a work in progress.</strong>
+          We're still refining the Feature Intake experience. Have ideas for how to make it more useful?
+          <a href="mailto:acorvin@redhat.com?subject=Feature%20Intake%20Feedback" class="underline font-medium hover:text-amber-900">Send feedback</a>.
+        </p>
+      </div>
+      <button
+        @click="dismissBanner"
+        class="text-amber-500 hover:text-amber-700 flex-shrink-0"
+        aria-label="Dismiss notice"
+      >
+        <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
     <!-- Filters -->
     <div class="bg-white rounded-lg shadow-md p-6 mb-6">
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
@@ -86,6 +112,7 @@ import { getIntakeFeatures } from '../services/api'
 
 const STORAGE_KEY = 'feature-intake-group-order'
 const FILTER_STORAGE_KEY = 'feature-intake-filters'
+const BANNER_DISMISSED_KEY = 'feature-intake-banner-dismissed'
 
 export default {
   name: 'IntakeView',
@@ -105,7 +132,8 @@ export default {
       isLoading: false,
       teamFilter: '',
       componentFilter: '',
-      orderedTeams: []
+      orderedTeams: [],
+      bannerDismissed: false
     }
   },
   computed: {
@@ -143,6 +171,7 @@ export default {
     this.loadFeatures()
     this.loadGroupOrder()
     this.loadFilters()
+    this.loadBannerState()
   },
   methods: {
     async loadFeatures() {
@@ -250,6 +279,21 @@ export default {
         localStorage.removeItem(FILTER_STORAGE_KEY)
       } catch (error) {
         console.error('Failed to remove filters from localStorage:', error)
+      }
+    },
+    loadBannerState() {
+      try {
+        this.bannerDismissed = localStorage.getItem(BANNER_DISMISSED_KEY) === 'true'
+      } catch {
+        // Ignore errors
+      }
+    },
+    dismissBanner() {
+      this.bannerDismissed = true
+      try {
+        localStorage.setItem(BANNER_DISMISSED_KEY, 'true')
+      } catch {
+        // Ignore errors
       }
     }
   }
