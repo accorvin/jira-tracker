@@ -109,7 +109,7 @@
           </div>
 
           <div class="flex items-center field-status-age">
-            <span class="font-medium text-gray-600 w-24 flex-shrink-0">Age:</span>
+            <span class="font-medium text-gray-600 w-28 flex-shrink-0">Status Age:</span>
             <span
               class="field-value"
               :class="statusAgeClass"
