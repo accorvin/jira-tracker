@@ -140,6 +140,13 @@
       :isRefreshing="isRefreshing"
     />
 
+    <!-- Roadmap View -->
+    <RoadmapView
+      v-else-if="currentView === 'roadmap'"
+      :releases="releases"
+      :isRefreshing="isRefreshing"
+    />
+
     <ReleaseModal
       :show="showReleaseModal"
       :release="editingRelease"
@@ -168,6 +175,7 @@
 import AuthGuard from './components/AuthGuard.vue'
 import TopNav from './components/TopNav.vue'
 import IntakeView from './components/IntakeView.vue'
+import RoadmapView from './components/RoadmapView.vue'
 import KanbanBoard from './components/KanbanBoard.vue'
 import FilterBar from './components/FilterBar.vue'
 import ReleaseTabBar from './components/ReleaseTabBar.vue'
@@ -186,6 +194,7 @@ export default {
     AuthGuard,
     TopNav,
     IntakeView,
+    RoadmapView,
     KanbanBoard,
     FilterBar,
     ReleaseTabBar,

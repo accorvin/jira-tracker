@@ -180,6 +180,49 @@ export async function saveReleases(releases) {
 }
 
 /**
+ * Get all issues across all releases
+ * Fetches issues for each release in parallel and deduplicates by issue key
+ * @param {Array<{name: string}>} releases - Array of release objects
+ * @returns {Promise<{issues: Array, releaseNames: Array<string>}>}
+ */
+export async function getAllIssues(releases) {
+  if (!releases || releases.length === 0) {
+    return { issues: [], releaseNames: [] }
+  }
+
+  try {
+    // Fetch issues for all releases in parallel
+    const results = await Promise.allSettled(
+      releases.map(release => getIssues(release.name))
+    )
+
+    // Collect all issues and deduplicate by key
+    const issueMap = new Map()
+    const releaseNames = []
+
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value.issues) {
+        releaseNames.push(releases[index].name)
+        result.value.issues.forEach(issue => {
+          // Keep the first occurrence of each issue (or could merge if needed)
+          if (!issueMap.has(issue.key)) {
+            issueMap.set(issue.key, issue)
+          }
+        })
+      }
+    })
+
+    return {
+      issues: Array.from(issueMap.values()),
+      releaseNames
+    }
+  } catch (error) {
+    console.error('Get all issues error:', error)
+    throw error
+  }
+}
+
+/**
  * Get intake features from S3
  * @returns {Promise<{lastUpdated: string, features: Array}>}
  */

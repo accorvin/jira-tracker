@@ -36,6 +36,7 @@ defineEmits(['view-change'])
 
 const tabs = [
   { id: 'release-tracking', label: 'Release Tracking' },
-  { id: 'feature-intake', label: 'Feature Intake', badge: 'Beta' }
+  { id: 'feature-intake', label: 'Feature Intake', badge: 'Beta' },
+  { id: 'roadmap', label: 'Feature Roadmap' }
 ]
 </script>
