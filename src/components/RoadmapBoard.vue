@@ -1,10 +1,10 @@
 <template>
-  <div class="flex gap-6 h-full overflow-x-auto pb-4">
+  <div class="grid gap-6 h-full pb-4" :style="gridStyle">
     <div
       v-for="column in columns"
       :key="column.name"
       data-testid="roadmap-column"
-      class="bg-gray-100 rounded-lg p-4 flex flex-col min-w-[300px] max-w-[350px] flex-shrink-0"
+      class="bg-gray-100 rounded-lg p-4 flex flex-col min-w-0 overflow-visible"
     >
       <div class="flex items-center justify-between mb-4 pb-3 border-b border-gray-300">
         <h2 data-testid="column-title" class="text-xl font-bold text-gray-800">{{ column.name }}</h2>
@@ -41,6 +41,12 @@ export default {
     }
   },
   computed: {
+    gridStyle() {
+      const count = this.columns.length
+      return {
+        gridTemplateColumns: `repeat(${count}, minmax(250px, 1fr))`
+      }
+    },
     columns() {
       // Get all unique releases from issues
       const releaseSet = new Set()

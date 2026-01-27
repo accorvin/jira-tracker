@@ -6,6 +6,7 @@
     @mouseleave="hidePopupOnLeave"
   >
     <button
+      ref="iconButton"
       @click.stop="togglePopup"
       class="warning-icon pulse"
       aria-label="View hygiene issues"
@@ -28,7 +29,7 @@
       </svg>
     </button>
 
-    <div v-if="showPopup" ref="popup" class="popup">
+    <div v-if="showPopup" ref="popup" class="popup" :style="popupStyle">
       <h4 class="popup-header">Hygiene Issues ({{ violations.length }})</h4>
       <ul class="violations-list">
         <li v-for="violation in violations" :key="violation.id" class="violation-item">
@@ -40,7 +41,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, nextTick } from 'vue'
 
 const props = defineProps({
   violations: {
@@ -52,22 +53,50 @@ const props = defineProps({
 
 const showPopup = ref(false)
 const popup = ref(null)
+const iconButton = ref(null)
 const isClickedOpen = ref(false) // Track if popup was opened by click (sticky) vs hover
+const popupStyle = reactive({})
 
-function togglePopup() {
-  showPopup.value = !showPopup.value
-  isClickedOpen.value = showPopup.value // If opening via click, mark as sticky
+function updatePopupPosition() {
+  if (!iconButton.value) return
+
+  const rect = iconButton.value.getBoundingClientRect()
+  const popupWidth = 320 // approximate popup width
+
+  // Position below the icon
+  popupStyle.top = `${rect.bottom + 8}px`
+
+  // Check if popup would overflow on the right
+  if (rect.right + popupWidth > window.innerWidth) {
+    // Align to right edge of icon
+    popupStyle.right = `${window.innerWidth - rect.right}px`
+    popupStyle.left = 'auto'
+  } else {
+    // Align to left edge of icon, but ensure it doesn't go off-screen left
+    const leftPos = Math.max(8, rect.left - popupWidth + rect.width)
+    popupStyle.left = `${leftPos}px`
+    popupStyle.right = 'auto'
+  }
 }
 
-function showPopupOnHover() {
-  // Only show on hover if not already clicked open
+async function togglePopup() {
+  showPopup.value = !showPopup.value
+  isClickedOpen.value = showPopup.value
+  if (showPopup.value) {
+    await nextTick()
+    updatePopupPosition()
+  }
+}
+
+async function showPopupOnHover() {
   if (!isClickedOpen.value) {
     showPopup.value = true
+    await nextTick()
+    updatePopupPosition()
   }
 }
 
 function hidePopupOnLeave() {
-  // Only hide on mouse leave if it wasn't opened by click
   if (!isClickedOpen.value) {
     showPopup.value = false
   }
@@ -75,7 +104,6 @@ function hidePopupOnLeave() {
 
 function handleClickOutside(event) {
   if (showPopup.value && popup.value && !popup.value.contains(event.target)) {
-    // Check if click is on the warning icon button
     const button = event.target.closest('.warning-icon')
     if (!button) {
       showPopup.value = false
@@ -142,9 +170,7 @@ onBeforeUnmount(() => {
 }
 
 .popup {
-  position: absolute;
-  top: 2.75rem;
-  right: 0;
+  position: fixed;
   background: white;
   border: 1px solid #e5e7eb;
   border-radius: 0.5rem;
@@ -152,7 +178,7 @@ onBeforeUnmount(() => {
   padding: 0.75rem;
   min-width: 300px;
   max-width: 400px;
-  z-index: 20;
+  z-index: 50;
 }
 
 .popup-header {
