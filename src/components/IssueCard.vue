@@ -79,6 +79,16 @@
               {{ issue.releaseType || 'Not set' }}
             </span>
           </div>
+
+          <div v-if="issue.issueType === 'Feature'" class="flex items-center field-docs-required">
+            <span class="font-medium text-gray-600 w-24 flex-shrink-0">Docs Req:</span>
+            <span
+              class="field-value"
+              :class="docsRequiredClass"
+            >
+              {{ docsRequiredText }}
+            </span>
+          </div>
         </div>
 
         <!-- Right column -->
@@ -287,6 +297,25 @@ export default {
       }
 
       // Default styling for unknown colors
+      return 'text-gray-900'
+    },
+    docsRequiredText() {
+      // Treat null, undefined, or "None" as not set
+      if (!this.issue.docsRequired || this.issue.docsRequired === 'None') {
+        return 'Not set'
+      }
+      return this.issue.docsRequired
+    },
+    docsRequiredClass() {
+      // Check if docs required is not set (null, undefined, or "None")
+      const isNotSet = !this.issue.docsRequired || this.issue.docsRequired === 'None'
+
+      // Only highlight in red if not set AND status is In Progress
+      const inProgressStatuses = ['In Progress', 'Review', 'Testing']
+      if (isNotSet && inProgressStatuses.includes(this.issue.status)) {
+        return 'bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-medium'
+      }
+
       return 'text-gray-900'
     }
   },

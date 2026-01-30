@@ -307,6 +307,96 @@ describe('Hygiene Rules Engine', () => {
     })
   })
 
+  describe('Rule: Missing Docs Required', () => {
+    it('should trigger for Feature in In Progress without docsRequired', () => {
+      const issue = {
+        status: 'In Progress',
+        issueType: 'Feature',
+        docsRequired: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-docs-required')).toBe(true)
+    })
+
+    it('should trigger for Feature in In Progress with docsRequired set to "None"', () => {
+      const issue = {
+        status: 'In Progress',
+        issueType: 'Feature',
+        docsRequired: 'None'
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-docs-required')).toBe(true)
+    })
+
+    it('should trigger for Feature in Review without docsRequired', () => {
+      const issue = {
+        status: 'Review',
+        issueType: 'Feature',
+        docsRequired: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-docs-required')).toBe(true)
+    })
+
+    it('should not trigger for Feature with docsRequired set to "Yes"', () => {
+      const issue = {
+        status: 'In Progress',
+        issueType: 'Feature',
+        docsRequired: 'Yes'
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-docs-required')).toBe(false)
+    })
+
+    it('should not trigger for Feature with docsRequired set to "No"', () => {
+      const issue = {
+        status: 'In Progress',
+        issueType: 'Feature',
+        docsRequired: 'No'
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-docs-required')).toBe(false)
+    })
+
+    it('should not trigger for Feature in Refinement without docsRequired', () => {
+      const issue = {
+        status: 'Refinement',
+        issueType: 'Feature',
+        docsRequired: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-docs-required')).toBe(false)
+    })
+
+    it('should not trigger for Feature in New status without docsRequired', () => {
+      const issue = {
+        status: 'New',
+        issueType: 'Feature',
+        docsRequired: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-docs-required')).toBe(false)
+    })
+
+    it('should not trigger for Initiative in In Progress without docsRequired', () => {
+      const issue = {
+        status: 'In Progress',
+        issueType: 'Initiative',
+        docsRequired: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-docs-required')).toBe(false)
+    })
+  })
+
   describe('evaluateHygiene', () => {
     it('should return empty array for issue with no violations', () => {
       const issue = {
@@ -319,7 +409,8 @@ describe('Hygiene Rules Engine', () => {
         statusEnteredAt: '2025-12-05T12:00:00Z',
         colorStatus: 'Green',
         releaseType: 'GA',
-        linkedRfeApproved: true
+        linkedRfeApproved: true,
+        docsRequired: 'Yes'
       }
 
       const violations = evaluateHygiene(issue)
@@ -337,7 +428,8 @@ describe('Hygiene Rules Engine', () => {
         statusEnteredAt: '2025-12-05T12:00:00Z',
         colorStatus: 'Green',
         releaseType: 'GA',
-        linkedRfeApproved: true
+        linkedRfeApproved: true,
+        docsRequired: 'Yes'
       }
 
       const violations = evaluateHygiene(issue)

@@ -179,6 +179,25 @@ export const hygieneRules = [
     message: (issue) => {
       return `This feature is in New status but already has a target release set. Target release should only be set after refinement is complete.`
     }
+  },
+  {
+    id: 'missing-docs-required',
+    name: 'Missing Docs Required',
+    description: 'Features In Progress need to specify whether product documentation is required so docs team can plan accordingly.',
+    check: (issue) => {
+      // Only check for Features in In Progress statuses
+      if (issue.issueType !== 'Feature') {
+        return false
+      }
+      if (!isInProgress(issue)) {
+        return false
+      }
+      // Trigger if docsRequired is null, undefined, or "None"
+      return !issue.docsRequired || issue.docsRequired === 'None'
+    },
+    message: (issue) => {
+      return `This feature is in ${issue.status} but has no "Product Documentation Required" value set. Set this field to Yes or No.`
+    }
   }
 ]
 

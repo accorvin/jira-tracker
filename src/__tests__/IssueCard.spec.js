@@ -395,7 +395,7 @@ describe('IssueCard', () => {
       const staleInProgressIssue = {
         ...mockIssue,
         status: 'In Progress',
-        statusSummaryUpdated: '2025-12-01T10:00:00Z' // 9 days old
+        statusSummaryUpdated: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString() // 9 days old
       }
 
       const wrapper = mount(IssueCard, {
@@ -412,7 +412,7 @@ describe('IssueCard', () => {
       const staleRefinementIssue = {
         ...mockIssue,
         status: 'Refinement',
-        statusSummaryUpdated: '2025-12-01T10:00:00Z' // 9 days old
+        statusSummaryUpdated: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString() // 9 days old
       }
 
       const wrapper = mount(IssueCard, {
@@ -459,7 +459,7 @@ describe('IssueCard', () => {
       const freshInProgressIssue = {
         ...mockIssue,
         status: 'In Progress',
-        statusSummaryUpdated: '2025-12-08T10:00:00Z' // 2 days old
+        statusSummaryUpdated: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() // 2 days old
       }
 
       const wrapper = mount(IssueCard, {
@@ -878,6 +878,173 @@ describe('IssueCard', () => {
     })
   })
 
+  // Docs Required field tests
+  describe('Docs Required field display', () => {
+    it('renders Docs Required field label', () => {
+      const issueWithDocsRequired = {
+        ...mockIssue,
+        docsRequired: 'Yes'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithDocsRequired }
+      })
+
+      expect(wrapper.text()).toContain('Docs Req:')
+    })
+
+    it('displays "Yes" value when docsRequired is Yes', () => {
+      const issueWithDocsRequired = {
+        ...mockIssue,
+        docsRequired: 'Yes'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithDocsRequired }
+      })
+
+      const docsReqValue = wrapper.find('.field-docs-required .field-value')
+      expect(docsReqValue.text()).toBe('Yes')
+    })
+
+    it('displays "No" value when docsRequired is No', () => {
+      const issueWithDocsRequired = {
+        ...mockIssue,
+        docsRequired: 'No'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithDocsRequired }
+      })
+
+      const docsReqValue = wrapper.find('.field-docs-required .field-value')
+      expect(docsReqValue.text()).toBe('No')
+    })
+
+    it('shows "Not set" when docsRequired is null', () => {
+      const issueWithoutDocsRequired = {
+        ...mockIssue,
+        docsRequired: null
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithoutDocsRequired }
+      })
+
+      const docsReqValue = wrapper.find('.field-docs-required .field-value')
+      expect(docsReqValue.text()).toBe('Not set')
+    })
+
+    it('shows "Not set" when docsRequired is "None"', () => {
+      const issueWithNoneDocsRequired = {
+        ...mockIssue,
+        docsRequired: 'None'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithNoneDocsRequired }
+      })
+
+      const docsReqValue = wrapper.find('.field-docs-required .field-value')
+      expect(docsReqValue.text()).toBe('Not set')
+    })
+
+    it('shows red highlight when docsRequired is null and status is In Progress', () => {
+      const inProgressWithoutDocsRequired = {
+        ...mockIssue,
+        status: 'In Progress',
+        docsRequired: null
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: inProgressWithoutDocsRequired }
+      })
+
+      const docsReqValue = wrapper.find('.field-docs-required .field-value')
+      expect(docsReqValue.classes()).toContain('bg-red-100')
+      expect(docsReqValue.classes()).toContain('text-red-900')
+    })
+
+    it('shows red highlight when docsRequired is "None" and status is In Progress', () => {
+      const inProgressWithNoneDocsRequired = {
+        ...mockIssue,
+        status: 'In Progress',
+        docsRequired: 'None'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: inProgressWithNoneDocsRequired }
+      })
+
+      const docsReqValue = wrapper.find('.field-docs-required .field-value')
+      expect(docsReqValue.classes()).toContain('bg-red-100')
+      expect(docsReqValue.classes()).toContain('text-red-900')
+    })
+
+    it('shows normal styling when docsRequired is null but status is New', () => {
+      const newIssueWithoutDocsRequired = {
+        ...mockIssue,
+        status: 'New',
+        docsRequired: null
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: newIssueWithoutDocsRequired }
+      })
+
+      const docsReqValue = wrapper.find('.field-docs-required .field-value')
+      expect(docsReqValue.classes()).not.toContain('bg-red-100')
+      expect(docsReqValue.classes()).toContain('text-gray-900')
+    })
+
+    it('shows normal styling when docsRequired is "Yes" and status is In Progress', () => {
+      const inProgressWithDocsRequired = {
+        ...mockIssue,
+        status: 'In Progress',
+        docsRequired: 'Yes'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: inProgressWithDocsRequired }
+      })
+
+      const docsReqValue = wrapper.find('.field-docs-required .field-value')
+      expect(docsReqValue.classes()).not.toContain('bg-red-100')
+      expect(docsReqValue.classes()).toContain('text-gray-900')
+    })
+
+    it('shows normal styling when docsRequired is "No" and status is In Progress', () => {
+      const inProgressWithNoDocsRequired = {
+        ...mockIssue,
+        status: 'In Progress',
+        docsRequired: 'No'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: inProgressWithNoDocsRequired }
+      })
+
+      const docsReqValue = wrapper.find('.field-docs-required .field-value')
+      expect(docsReqValue.classes()).not.toContain('bg-red-100')
+      expect(docsReqValue.classes()).toContain('text-gray-900')
+    })
+
+    it('does not render Docs Required field for Initiative issue type', () => {
+      const initiativeIssue = {
+        ...mockIssue,
+        issueType: 'Initiative',
+        docsRequired: null
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: initiativeIssue }
+      })
+
+      const docsReqField = wrapper.find('.field-docs-required')
+      expect(docsReqField.exists()).toBe(false)
+    })
+  })
+
   describe('Hygiene Warning Integration', () => {
     it('should render HygieneWarning component when issue has hygiene violations', () => {
       const issueWithViolations = {
@@ -897,9 +1064,11 @@ describe('IssueCard', () => {
     it('should not render HygieneWarning when issue has no violations', () => {
       const issueWithoutViolations = {
         ...mockIssue,
-        statusEnteredAt: '2025-12-05T12:00:00Z',
-        statusSummaryUpdated: '2025-12-10T12:00:00Z',
-        colorStatus: 'Green'
+        statusEnteredAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
+        statusSummaryUpdated: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+        colorStatus: 'Green',
+        docsRequired: 'Yes',
+        linkedRfeApproved: true
       }
 
       const wrapper = mount(IssueCard, {
