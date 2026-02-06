@@ -75,6 +75,7 @@ const CUSTOM_FIELDS = {
   statusSummary: 'customfield_12320841',
   colorStatus: 'customfield_12320845',
   docsRequired: 'customfield_12324040',
+  targetEnd: 'customfield_12313942',
   // RICE scoring fields
   reach: 'customfield_12320846',
   impact: 'customfield_12320740',
@@ -109,7 +110,13 @@ async function fetchIssuesFromJira(targetRelease) {
     CUSTOM_FIELDS.targetRelease,
     CUSTOM_FIELDS.statusSummary,
     CUSTOM_FIELDS.colorStatus,
-    CUSTOM_FIELDS.docsRequired
+    CUSTOM_FIELDS.docsRequired,
+    CUSTOM_FIELDS.targetEnd,
+    CUSTOM_FIELDS.reach,
+    CUSTOM_FIELDS.impact,
+    CUSTOM_FIELDS.confidence,
+    CUSTOM_FIELDS.effort,
+    CUSTOM_FIELDS.riceScore
   ].join(',');
 
   const issues = [];
@@ -316,6 +323,9 @@ function transformIssue(issue, rfeMap = {}) {
     statusEnteredAt: getStatusEnteredAtDate(issue),
     colorStatus: serializeField(fields[CUSTOM_FIELDS.colorStatus]),
     docsRequired: serializeField(fields[CUSTOM_FIELDS.docsRequired]),
+    targetEnd: fields[CUSTOM_FIELDS.targetEnd] || null,
+    riceScore: fields[CUSTOM_FIELDS.riceScore] || null,
+    riceStatus: computeRiceStatus(fields),
     linkedRfeKey: linkedRfeKey,
     linkedRfeApproved: linkedRfeApproved,
     url: `https://issues.redhat.com/browse/${issue.key}`

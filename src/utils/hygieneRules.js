@@ -59,6 +59,46 @@ function getDaysSinceStatusSummaryUpdate(issue) {
 }
 
 /**
+ * Parse release version string into comparable parts
+ * @param {string} release - e.g., "rhoai-3.4-ea1", "rhoai-3.3"
+ * @returns {{ major: number, minor: number, suffix: string } | null}
+ */
+function parseReleaseVersion(release) {
+  if (!release) return null
+  const match = release.match(/rhoai-(\d+)\.(\d+)(?:-([A-Za-z0-9]+))?/)
+  if (!match) return null
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    suffix: match[3] || ''
+  }
+}
+
+/**
+ * Check if a release is <= 3.4-ea1 (grandfathered for RICE requirement)
+ * Grandfathered releases: 3.3 and earlier, 3.4-ea1
+ * @param {string} release
+ * @returns {boolean}
+ */
+function isGrandfatheredRelease(release) {
+  const parsed = parseReleaseVersion(release)
+  if (!parsed) return false
+
+  // Anything before 3.3 is grandfathered
+  if (parsed.major < 3) return true
+  if (parsed.major === 3 && parsed.minor < 3) return true
+
+  // 3.3.x is grandfathered (any suffix)
+  if (parsed.major === 3 && parsed.minor === 3) return true
+
+  // 3.4-ea1 specifically is grandfathered
+  if (parsed.major === 3 && parsed.minor === 4 && parsed.suffix === 'ea1') return true
+
+  // Everything else (3.4 GA, 3.5+, etc.) is not grandfathered
+  return false
+}
+
+/**
  * Hygiene Rules Configuration
  * Each rule has:
  * - id: unique identifier
@@ -197,6 +237,52 @@ export const hygieneRules = [
     },
     message: (issue) => {
       return `This feature is in ${issue.status} but has no "Product Documentation Required" value set. Set this field to Yes or No.`
+    }
+  },
+  {
+    id: 'missing-target-end',
+    name: 'Missing Target End',
+    description: 'Features in Refinement or In Progress must have a Target End date set for planning and tracking purposes.',
+    check: (issue) => {
+      if (issue.issueType !== 'Feature') return false
+      if (!isInRefinement(issue) && !isInProgress(issue)) return false
+      return !issue.targetEnd
+    },
+    message: (issue) => {
+      return `This feature is in ${issue.status} but has no Target End date. Set the target end date for planning.`
+    }
+  },
+  {
+    id: 'missing-rice-score',
+    name: 'Missing RICE Score',
+    description: 'Features in Refinement must have RICE score set. Features In Progress for releases after 3.4-ea1 also require RICE score.',
+    check: (issue) => {
+      if (issue.issueType !== 'Feature') return false
+
+      // RICE score is set if riceStatus is 'complete'
+      const hasRiceScore = issue.riceStatus === 'complete'
+      if (hasRiceScore) return false
+
+      // In Refinement - always required
+      if (isInRefinement(issue)) return true
+
+      // In Progress - check grandfathering
+      if (isInProgress(issue)) {
+        // Get the first target release
+        const targetRelease = issue.targetRelease && issue.targetRelease[0]
+        // If grandfathered release, no violation
+        if (isGrandfatheredRelease(targetRelease)) return false
+        // Not grandfathered - violation
+        return true
+      }
+
+      return false
+    },
+    message: (issue) => {
+      if (isInRefinement(issue)) {
+        return 'This feature is in Refinement but has no RICE score. Set Reach, Impact, Confidence, and Effort values.'
+      }
+      return `This feature is in ${issue.status} and requires RICE score for releases after 3.4-ea1. Set Reach, Impact, Confidence, and Effort values.`
     }
   }
 ]

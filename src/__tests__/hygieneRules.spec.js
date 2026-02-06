@@ -397,6 +397,250 @@ describe('Hygiene Rules Engine', () => {
     })
   })
 
+  describe('Rule: Missing Target End', () => {
+    it('should trigger for Feature in Refinement without targetEnd', () => {
+      const issue = {
+        status: 'Refinement',
+        issueType: 'Feature',
+        targetEnd: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-target-end')).toBe(true)
+    })
+
+    it('should trigger for Feature in In Progress without targetEnd', () => {
+      const issue = {
+        status: 'In Progress',
+        issueType: 'Feature',
+        targetEnd: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-target-end')).toBe(true)
+    })
+
+    it('should trigger for Feature in Review without targetEnd', () => {
+      const issue = {
+        status: 'Review',
+        issueType: 'Feature',
+        targetEnd: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-target-end')).toBe(true)
+    })
+
+    it('should not trigger for Feature with targetEnd set', () => {
+      const issue = {
+        status: 'In Progress',
+        issueType: 'Feature',
+        targetEnd: '2025-12-31'
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-target-end')).toBe(false)
+    })
+
+    it('should not trigger for Feature in New status without targetEnd', () => {
+      const issue = {
+        status: 'New',
+        issueType: 'Feature',
+        targetEnd: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-target-end')).toBe(false)
+    })
+
+    it('should not trigger for Feature in Resolved status without targetEnd', () => {
+      const issue = {
+        status: 'Resolved',
+        issueType: 'Feature',
+        targetEnd: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-target-end')).toBe(false)
+    })
+
+    it('should not trigger for Initiative in Refinement without targetEnd', () => {
+      const issue = {
+        status: 'Refinement',
+        issueType: 'Initiative',
+        targetEnd: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-target-end')).toBe(false)
+    })
+
+    it('should not trigger for Initiative in In Progress without targetEnd', () => {
+      const issue = {
+        status: 'In Progress',
+        issueType: 'Initiative',
+        targetEnd: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-target-end')).toBe(false)
+    })
+  })
+
+  describe('Rule: Missing RICE Score', () => {
+    it('should trigger for Feature in Refinement without RICE score', () => {
+      const issue = {
+        status: 'Refinement',
+        issueType: 'Feature',
+        riceStatus: 'none'
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-rice-score')).toBe(true)
+    })
+
+    it('should trigger for Feature in Refinement with partial RICE score', () => {
+      const issue = {
+        status: 'Refinement',
+        issueType: 'Feature',
+        riceStatus: 'partial'
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-rice-score')).toBe(true)
+    })
+
+    it('should not trigger for Feature in Refinement with complete RICE score', () => {
+      const issue = {
+        status: 'Refinement',
+        issueType: 'Feature',
+        riceStatus: 'complete'
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-rice-score')).toBe(false)
+    })
+
+    it('should not trigger for Feature in New status without RICE score', () => {
+      const issue = {
+        status: 'New',
+        issueType: 'Feature',
+        riceStatus: 'none'
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-rice-score')).toBe(false)
+    })
+
+    it('should not trigger for Initiative in Refinement without RICE score', () => {
+      const issue = {
+        status: 'Refinement',
+        issueType: 'Initiative',
+        riceStatus: 'none'
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-rice-score')).toBe(false)
+    })
+
+    // Grandfathering tests for In Progress
+    it('should trigger for Feature in In Progress on rhoai-3.5 without RICE score', () => {
+      const issue = {
+        status: 'In Progress',
+        issueType: 'Feature',
+        riceStatus: 'none',
+        targetRelease: ['rhoai-3.5']
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-rice-score')).toBe(true)
+    })
+
+    it('should trigger for Feature in In Progress on rhoai-3.4 (GA) without RICE score', () => {
+      const issue = {
+        status: 'In Progress',
+        issueType: 'Feature',
+        riceStatus: 'none',
+        targetRelease: ['rhoai-3.4']
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-rice-score')).toBe(true)
+    })
+
+    it('should NOT trigger for Feature in In Progress on rhoai-3.3 without RICE score (grandfathered)', () => {
+      const issue = {
+        status: 'In Progress',
+        issueType: 'Feature',
+        riceStatus: 'none',
+        targetRelease: ['rhoai-3.3']
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-rice-score')).toBe(false)
+    })
+
+    it('should NOT trigger for Feature in In Progress on rhoai-3.4-ea1 without RICE score (grandfathered)', () => {
+      const issue = {
+        status: 'In Progress',
+        issueType: 'Feature',
+        riceStatus: 'none',
+        targetRelease: ['rhoai-3.4-ea1']
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-rice-score')).toBe(false)
+    })
+
+    it('should NOT trigger for Feature in In Progress on rhoai-3.2 without RICE score (grandfathered)', () => {
+      const issue = {
+        status: 'In Progress',
+        issueType: 'Feature',
+        riceStatus: 'none',
+        targetRelease: ['rhoai-3.2']
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-rice-score')).toBe(false)
+    })
+
+    it('should trigger for Feature in Review on rhoai-3.5 without RICE score', () => {
+      const issue = {
+        status: 'Review',
+        issueType: 'Feature',
+        riceStatus: 'none',
+        targetRelease: ['rhoai-3.5']
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-rice-score')).toBe(true)
+    })
+
+    it('should NOT trigger for Feature in In Progress with complete RICE score regardless of release', () => {
+      const issue = {
+        status: 'In Progress',
+        issueType: 'Feature',
+        riceStatus: 'complete',
+        targetRelease: ['rhoai-3.5']
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-rice-score')).toBe(false)
+    })
+
+    it('should NOT trigger for Feature in Resolved status without RICE score', () => {
+      const issue = {
+        status: 'Resolved',
+        issueType: 'Feature',
+        riceStatus: 'none',
+        targetRelease: ['rhoai-3.5']
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-rice-score')).toBe(false)
+    })
+  })
+
   describe('evaluateHygiene', () => {
     it('should return empty array for issue with no violations', () => {
       const issue = {
@@ -410,7 +654,9 @@ describe('Hygiene Rules Engine', () => {
         colorStatus: 'Green',
         releaseType: 'GA',
         linkedRfeApproved: true,
-        docsRequired: 'Yes'
+        docsRequired: 'Yes',
+        targetEnd: '2025-12-31',
+        riceStatus: 'complete'
       }
 
       const violations = evaluateHygiene(issue)
@@ -429,7 +675,9 @@ describe('Hygiene Rules Engine', () => {
         colorStatus: 'Green',
         releaseType: 'GA',
         linkedRfeApproved: true,
-        docsRequired: 'Yes'
+        docsRequired: 'Yes',
+        targetEnd: '2025-12-31',
+        riceStatus: 'complete'
       }
 
       const violations = evaluateHygiene(issue)

@@ -277,7 +277,7 @@ describe('IssueCard', () => {
         props: { issue: issueWithoutTargetRelease }
       })
 
-      expect(wrapper.text()).toContain('Target:')
+      expect(wrapper.text()).toContain('Target Release:')
       const targetReleaseValue = wrapper.find('.field-target-release .field-value')
       expect(targetReleaseValue.classes()).toContain('bg-red-100')
       expect(targetReleaseValue.classes()).toContain('text-red-900')
@@ -297,7 +297,7 @@ describe('IssueCard', () => {
         props: { issue: issueWithEmptyTargetRelease }
       })
 
-      expect(wrapper.text()).toContain('Target:')
+      expect(wrapper.text()).toContain('Target Release:')
       const targetReleaseValue = wrapper.find('.field-target-release .field-value')
       expect(targetReleaseValue.classes()).toContain('bg-red-100')
       expect(targetReleaseValue.classes()).toContain('text-red-900')
@@ -342,7 +342,7 @@ describe('IssueCard', () => {
       expect(bubbles[0].classes()).not.toContain('bg-red-100')
     })
 
-    it('always shows team, release type, and target release rows even when null', () => {
+    it('always shows team, release type, and target release rows for Features even when null', () => {
       const issueWithNulls = {
         ...mockIssue,
         team: null,
@@ -354,10 +354,196 @@ describe('IssueCard', () => {
         props: { issue: issueWithNulls }
       })
 
-      // All three fields should be visible
+      // All three fields should be visible for Features
       expect(wrapper.text()).toContain('Team:')
       expect(wrapper.text()).toContain('Rel. Type:')
-      expect(wrapper.text()).toContain('Target:')
+      expect(wrapper.text()).toContain('Target Release:')
+    })
+
+    it('does not show Release Type for Initiatives', () => {
+      const initiativeIssue = {
+        ...mockIssue,
+        issueType: 'Initiative',
+        releaseType: 'GA'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: initiativeIssue }
+      })
+
+      expect(wrapper.text()).not.toContain('Rel. Type:')
+    })
+  })
+
+  // Target End field tests
+  describe('Target End field display', () => {
+    it('displays Target End field for Features', () => {
+      const wrapper = mount(IssueCard, {
+        props: { issue: mockIssue }
+      })
+
+      expect(wrapper.text()).toContain('Target End:')
+    })
+
+    it('does not display Target End field for Initiatives', () => {
+      const initiativeIssue = {
+        ...mockIssue,
+        issueType: 'Initiative'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: initiativeIssue }
+      })
+
+      expect(wrapper.text()).not.toContain('Target End:')
+    })
+
+    it('shows formatted date when targetEnd is set', () => {
+      const issueWithTargetEnd = {
+        ...mockIssue,
+        targetEnd: '2025-12-31T12:00:00Z'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithTargetEnd }
+      })
+
+      // Check that the date is formatted (the exact format may vary by locale)
+      expect(wrapper.find('.field-target-end .field-value').text()).not.toBe('Not set')
+      expect(wrapper.find('.field-target-end .field-value').text()).toContain('2025')
+    })
+
+    it('shows "Not set" with red highlight when targetEnd is missing for active Feature', () => {
+      const activeFeatureWithoutTargetEnd = {
+        ...mockIssue,
+        status: 'In Progress',
+        targetEnd: null
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: activeFeatureWithoutTargetEnd }
+      })
+
+      const targetEndValue = wrapper.find('.field-target-end .field-value')
+      expect(targetEndValue.text()).toBe('Not set')
+      expect(targetEndValue.classes()).toContain('bg-red-100')
+    })
+
+    it('shows "Not set" without red highlight for Feature in New status', () => {
+      const newFeature = {
+        ...mockIssue,
+        status: 'New',
+        targetEnd: null
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: newFeature }
+      })
+
+      const targetEndValue = wrapper.find('.field-target-end .field-value')
+      expect(targetEndValue.text()).toBe('Not set')
+      expect(targetEndValue.classes()).not.toContain('bg-red-100')
+    })
+  })
+
+  // RICE Score field tests
+  describe('RICE Score field display', () => {
+    it('displays RICE Score field for Features', () => {
+      const wrapper = mount(IssueCard, {
+        props: { issue: mockIssue }
+      })
+
+      expect(wrapper.text()).toContain('RICE Score:')
+    })
+
+    it('does not display RICE Score field for Initiatives', () => {
+      const initiativeIssue = {
+        ...mockIssue,
+        issueType: 'Initiative'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: initiativeIssue }
+      })
+
+      expect(wrapper.text()).not.toContain('RICE Score:')
+    })
+
+    it('shows score value when riceScore is set', () => {
+      const issueWithRice = {
+        ...mockIssue,
+        riceScore: 42
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithRice }
+      })
+
+      expect(wrapper.text()).toContain('42')
+    })
+
+    it('shows green background for complete riceStatus', () => {
+      const issueWithCompleteRice = {
+        ...mockIssue,
+        riceScore: 42,
+        riceStatus: 'complete'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithCompleteRice }
+      })
+
+      const riceScoreValue = wrapper.find('.field-rice-score .field-value')
+      expect(riceScoreValue.classes()).toContain('bg-green-600')
+    })
+
+    it('shows yellow background for partial riceStatus', () => {
+      const issueWithPartialRice = {
+        ...mockIssue,
+        riceScore: null,
+        riceStatus: 'partial'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: issueWithPartialRice }
+      })
+
+      const riceScoreValue = wrapper.find('.field-rice-score .field-value')
+      expect(riceScoreValue.classes()).toContain('bg-yellow-400')
+    })
+
+    it('shows red background for missing riceStatus on active Feature', () => {
+      const activeFeatureWithoutRice = {
+        ...mockIssue,
+        status: 'Refinement',
+        riceScore: null,
+        riceStatus: 'none'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: activeFeatureWithoutRice }
+      })
+
+      const riceScoreValue = wrapper.find('.field-rice-score .field-value')
+      expect(riceScoreValue.text()).toBe('Not set')
+      expect(riceScoreValue.classes()).toContain('bg-red-100')
+    })
+
+    it('shows "Not set" without red highlight for Feature in New status', () => {
+      const newFeature = {
+        ...mockIssue,
+        status: 'New',
+        riceScore: null,
+        riceStatus: 'none'
+      }
+
+      const wrapper = mount(IssueCard, {
+        props: { issue: newFeature }
+      })
+
+      const riceScoreValue = wrapper.find('.field-rice-score .field-value')
+      expect(riceScoreValue.text()).toBe('Not set')
+      expect(riceScoreValue.classes()).not.toContain('bg-red-100')
     })
   })
 
@@ -1068,7 +1254,9 @@ describe('IssueCard', () => {
         statusSummaryUpdated: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
         colorStatus: 'Green',
         docsRequired: 'Yes',
-        linkedRfeApproved: true
+        linkedRfeApproved: true,
+        targetEnd: '2025-12-31',
+        riceStatus: 'complete'
       }
 
       const wrapper = mount(IssueCard, {

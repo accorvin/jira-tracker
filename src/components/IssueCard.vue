@@ -70,7 +70,7 @@
             </span>
           </div>
 
-          <div class="flex items-center field-release-type">
+          <div v-if="issue.issueType === 'Feature'" class="flex items-center field-release-type">
             <span class="font-medium text-gray-600 w-24 flex-shrink-0">Rel. Type:</span>
             <span
               class="field-value"
@@ -94,7 +94,7 @@
         <!-- Right column -->
         <div class="metadata-col space-y-1">
           <div class="flex items-center field-target-release">
-            <span class="font-medium text-gray-600 w-24 flex-shrink-0">Target:</span>
+            <span class="font-medium text-gray-600 w-28 flex-shrink-0">Target Release:</span>
             <div v-if="issue.targetRelease && issue.targetRelease.length > 0" class="flex flex-wrap gap-1">
               <span
                 v-for="(release, index) in issue.targetRelease"
@@ -106,6 +106,26 @@
               </span>
             </div>
             <span v-else class="field-value bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-medium">Not set</span>
+          </div>
+
+          <div v-if="issue.issueType === 'Feature'" class="flex items-center field-target-end">
+            <span class="font-medium text-gray-600 w-28 flex-shrink-0">Target End:</span>
+            <span
+              class="field-value"
+              :class="targetEndClass"
+            >
+              {{ targetEndText }}
+            </span>
+          </div>
+
+          <div v-if="issue.issueType === 'Feature'" class="flex items-center field-rice-score">
+            <span class="font-medium text-gray-600 w-28 flex-shrink-0">RICE Score:</span>
+            <span
+              class="field-value px-1.5 py-0.5 rounded font-medium"
+              :class="riceScoreClass"
+            >
+              {{ riceScoreText }}
+            </span>
           </div>
 
           <div class="flex items-center field-color-status">
@@ -316,6 +336,44 @@ export default {
         return 'bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-medium'
       }
 
+      return 'text-gray-900'
+    },
+    targetEndText() {
+      if (!this.issue.targetEnd) {
+        return 'Not set'
+      }
+      // Format as readable date
+      const date = new Date(this.issue.targetEnd)
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    },
+    targetEndClass() {
+      const isNotSet = !this.issue.targetEnd
+      // Highlight red if not set and in Refinement or In Progress
+      const activeStatuses = ['Refinement', 'In Progress', 'Review', 'Testing']
+      if (isNotSet && activeStatuses.includes(this.issue.status)) {
+        return 'bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-medium'
+      }
+      return 'text-gray-900'
+    },
+    riceScoreText() {
+      if (this.issue.riceScore != null) {
+        return this.issue.riceScore
+      }
+      return 'Not set'
+    },
+    riceScoreClass() {
+      // Color based on riceStatus: complete (green), partial (yellow), none (red/gray)
+      const status = this.issue.riceStatus
+      if (status === 'complete') {
+        return 'bg-green-600 text-white'
+      } else if (status === 'partial') {
+        return 'bg-yellow-400 text-gray-900'
+      }
+      // Not set - gray for inactive, red for active issues
+      const activeStatuses = ['Refinement', 'In Progress', 'Review', 'Testing']
+      if (activeStatuses.includes(this.issue.status)) {
+        return 'bg-red-100 text-red-900'
+      }
       return 'text-gray-900'
     }
   },
