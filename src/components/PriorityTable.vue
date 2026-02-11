@@ -11,6 +11,7 @@
             <th class="px-3 py-2 text-left font-semibold text-gray-600 w-36">Key</th>
             <th class="px-3 py-2 text-left font-semibold text-gray-600">Summary</th>
             <th class="px-3 py-2 text-left font-semibold text-gray-600 w-40">Team</th>
+            <th class="px-3 py-2 text-left font-semibold text-gray-600 w-40">Components</th>
             <th class="px-3 py-2 text-left font-semibold text-gray-600 w-28">Status</th>
             <th class="px-3 py-2 text-left font-semibold text-gray-600 w-20">Color</th>
             <th class="px-3 py-2 text-left font-semibold text-gray-600 w-32">Target Release</th>
@@ -52,6 +53,19 @@
               </span>
             </td>
             <td class="px-3 py-2 text-gray-700">{{ issue.team || '—' }}</td>
+            <td class="px-3 py-2">
+              <div v-if="issue.components && issue.components.length" class="flex flex-wrap gap-1">
+                <span
+                  v-for="comp in issue.components"
+                  :key="comp"
+                  data-testid="component-pill"
+                  class="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 whitespace-nowrap"
+                >
+                  {{ comp }}
+                </span>
+              </div>
+              <span v-else class="text-gray-400">—</span>
+            </td>
             <td class="px-3 py-2">
               <span
                 class="px-1.5 py-0.5 rounded text-xs font-medium"

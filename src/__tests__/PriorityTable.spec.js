@@ -7,9 +7,9 @@ import PriorityTable from '../components/PriorityTable.vue'
 
 describe('PriorityTable', () => {
   const mockIssues = [
-    { key: 'RHOAIENG-001', summary: 'Feature A', team: 'Team X', status: 'In Progress', rank: 1, displayRank: 1, colorStatus: 'Green', targetRelease: ['rhoai-3.2'] },
-    { key: 'RHOAIENG-002', summary: 'Feature B', team: 'Team Y', status: 'New', rank: 2, displayRank: 2, colorStatus: null, targetRelease: ['rhoai-3.2'] },
-    { key: 'RHOAIENG-003', summary: 'Feature C', team: 'Team Z', status: 'In Progress', rank: 101, displayRank: 3, colorStatus: 'Yellow', targetRelease: ['rhoai-3.2'] }
+    { key: 'RHOAIENG-001', summary: 'Feature A', team: 'Team X', status: 'In Progress', rank: 1, displayRank: 1, colorStatus: 'Green', targetRelease: ['rhoai-3.2'], components: ['UI', 'Backend'] },
+    { key: 'RHOAIENG-002', summary: 'Feature B', team: 'Team Y', status: 'New', rank: 2, displayRank: 2, colorStatus: null, targetRelease: ['rhoai-3.2'], components: [] },
+    { key: 'RHOAIENG-003', summary: 'Feature C', team: 'Team Z', status: 'In Progress', rank: 101, displayRank: 3, colorStatus: 'Yellow', targetRelease: ['rhoai-3.2'], components: ['API'] }
   ]
 
   it('renders a table with correct columns', () => {
@@ -22,7 +22,32 @@ describe('PriorityTable', () => {
     expect(headerTexts).toContain('Key')
     expect(headerTexts).toContain('Summary')
     expect(headerTexts).toContain('Team')
+    expect(headerTexts).toContain('Components')
     expect(headerTexts).toContain('Status')
+  })
+
+  it('renders components as individual pills', () => {
+    const wrapper = mount(PriorityTable, {
+      props: { issues: mockIssues }
+    })
+    const rows = wrapper.findAll('tbody tr')
+
+    // First issue has ['UI', 'Backend'] — two pills
+    const row1Pills = rows[0].findAll('[data-testid="component-pill"]')
+    expect(row1Pills.length).toBe(2)
+    expect(row1Pills[0].text()).toBe('UI')
+    expect(row1Pills[1].text()).toBe('Backend')
+    expect(row1Pills[0].classes()).toContain('rounded-full')
+
+    // Second issue has empty components — dash, no pills
+    const row2Pills = rows[1].findAll('[data-testid="component-pill"]')
+    expect(row2Pills.length).toBe(0)
+    expect(rows[1].text()).toContain('—')
+
+    // Third issue has ['API'] — one pill
+    const row3Pills = rows[2].findAll('[data-testid="component-pill"]')
+    expect(row3Pills.length).toBe(1)
+    expect(row3Pills[0].text()).toBe('API')
   })
 
   it('renders rows sorted by rank ascending', () => {
