@@ -33,6 +33,10 @@ export default {
     isRefreshing: {
       type: Boolean,
       default: false
+    },
+    rankMap: {
+      type: Map,
+      default: () => new Map()
     }
   },
   data() {
@@ -78,7 +82,10 @@ export default {
       this.isLoading = true
       try {
         const data = await getAllIssues(this.releases)
-        this.allIssues = data.issues || []
+        this.allIssues = (data.issues || []).map(issue => ({
+          ...issue,
+          rank: this.rankMap.get(issue.key) || null
+        }))
       } catch (error) {
         console.error('Failed to load roadmap issues:', error)
         this.allIssues = []

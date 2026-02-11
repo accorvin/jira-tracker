@@ -6,7 +6,7 @@
 
 import { useAuth } from '../composables/useAuth';
 
-const API_ENDPOINT = 'https://8jez4fgp80.execute-api.us-east-1.amazonaws.com/dev';
+const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT || '/api';
 
 /**
  * Get Firebase ID token for authentication
@@ -219,6 +219,42 @@ export async function getAllIssues(releases) {
   } catch (error) {
     console.error('Get all issues error:', error)
     throw error
+  }
+}
+
+/**
+ * Get plan rankings from S3
+ * @returns {Promise<{lastUpdated: string, planId: number, totalCount: number, issues: Array}>}
+ */
+export async function getPlanRankings() {
+  try {
+    const token = await getAuthToken();
+
+    const response = await fetch(`${API_ENDPOINT}/plan-rankings`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+
+      if (response.status === 401) {
+        throw new Error('Authentication failed. Please sign in again.');
+      }
+
+      if (response.status === 500 && errorData.error?.includes('not found')) {
+        throw new Error('No plan rankings data found. Please refresh to fetch data from Jira.');
+      }
+
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Get plan rankings error:', error);
+    throw error;
   }
 }
 

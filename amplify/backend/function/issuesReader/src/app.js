@@ -270,6 +270,43 @@ app.get('/intake', async function(req, res) {
   }
 });
 
+/**
+ * GET /plan-rankings - Get plan rankings
+ */
+app.get('/plan-rankings', async function(req, res) {
+  try {
+    // Verify Firebase token
+    const authHeader = req.headers.authorization;
+    const verification = await verifyFirebaseToken(authHeader);
+
+    if (!verification.valid) {
+      return res.status(401).json({
+        error: verification.error
+      });
+    }
+
+    console.log(`Reading plan rankings (user: ${verification.email})`);
+
+    // Read from S3
+    const data = await readFromS3('plan-rankings.json');
+
+    // If file doesn't exist, return empty
+    if (!data) {
+      return res.status(500).json({
+        error: 'Plan rankings data not found. Please refresh to fetch data from Jira.'
+      });
+    }
+
+    res.json(data);
+
+  } catch (error) {
+    console.error('Read plan rankings error:', error);
+    res.status(500).json({
+      error: error.message
+    });
+  }
+});
+
 // Handle OPTIONS for CORS preflight
 app.options('/issues', function(req, res) {
   res.status(200).end();
@@ -284,6 +321,10 @@ app.options('/releases', function(req, res) {
 });
 
 app.options('/intake', function(req, res) {
+  res.status(200).end();
+});
+
+app.options('/plan-rankings', function(req, res) {
   res.status(200).end();
 });
 

@@ -12,6 +12,9 @@ node_modules
 dist
 dist-ssr
 
+# Local dev server data
+data/
+
 # Generated/fetched data - contains Jira API data
 public/issues-*.json
 public/releases.json

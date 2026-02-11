@@ -28,6 +28,13 @@
       "permissions": {
         "setting": "open"
       }
+    },
+    "/plan-rankings": {
+      "name": "/plan-rankings",
+      "lambdaFunction": "issuesReader",
+      "permissions": {
+        "setting": "open"
+      }
     }
   }
 }

@@ -12,10 +12,20 @@
       :class="isFlipped ? 'opacity-0 pointer-events-none' : 'opacity-100'"
       ref="cardFront"
     >
+      <!-- Rank Badge in top-left corner -->
+      <span
+        v-if="issue.rank != null"
+        class="absolute top-2 left-6 inline-flex items-center justify-center px-1.5 py-0.5 rounded text-xs font-bold z-10"
+        :class="rankBadgeClass"
+        data-testid="rank-badge"
+      >
+        #{{ issue.rank }}
+      </span>
+
       <!-- Hygiene Warning in top-right corner -->
       <HygieneWarning :violations="hygieneViolations" />
 
-      <div class="flex justify-between items-start mb-1">
+      <div class="flex justify-between items-start mb-1" :class="{ 'mt-5': issue.rank != null }">
         <a
           :href="issue.url"
           target="_blank"
@@ -179,6 +189,7 @@
 import DOMPurify from 'dompurify'
 import HygieneWarning from './HygieneWarning.vue'
 import { evaluateHygiene } from '../utils/hygieneRules.js'
+import { getRankTier } from '../utils/priorityRules.js'
 
 // Configure DOMPurify to add target and rel to links
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
@@ -375,6 +386,13 @@ export default {
         return 'bg-red-100 text-red-900'
       }
       return 'text-gray-900'
+    },
+    rankBadgeClass() {
+      if (this.issue.rank == null) return ''
+      const tier = getRankTier(this.issue.rank)
+      if (tier === 'top') return 'bg-green-500 text-white'
+      if (tier === 'high') return 'bg-blue-500 text-white'
+      return 'bg-gray-300 text-gray-700'
     }
   },
   methods: {

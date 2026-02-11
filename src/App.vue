@@ -145,6 +145,13 @@
       v-else-if="currentView === 'roadmap'"
       :releases="releases"
       :isRefreshing="isRefreshing"
+      :rankMap="rankMap"
+    />
+
+    <!-- Priority View -->
+    <PriorityView
+      v-else-if="currentView === 'priority'"
+      :isRefreshing="isRefreshing"
     />
 
     <ReleaseModal
@@ -176,6 +183,7 @@ import AuthGuard from './components/AuthGuard.vue'
 import TopNav from './components/TopNav.vue'
 import IntakeView from './components/IntakeView.vue'
 import RoadmapView from './components/RoadmapView.vue'
+import PriorityView from './components/PriorityView.vue'
 import KanbanBoard from './components/KanbanBoard.vue'
 import FilterBar from './components/FilterBar.vue'
 import ReleaseTabBar from './components/ReleaseTabBar.vue'
@@ -186,7 +194,7 @@ import Toast from './components/Toast.vue'
 import HelpBubble from './components/HelpBubble.vue'
 import HygieneRulesModal from './components/HygieneRulesModal.vue'
 import { useAuth } from './composables/useAuth'
-import { refreshIssues, getIssues, getReleases, saveReleases } from './services/api'
+import { refreshIssues, getIssues, getReleases, saveReleases, getPlanRankings } from './services/api'
 
 export default {
   name: 'App',
@@ -195,6 +203,7 @@ export default {
     TopNav,
     IntakeView,
     RoadmapView,
+    PriorityView,
     KanbanBoard,
     FilterBar,
     ReleaseTabBar,
@@ -236,7 +245,8 @@ export default {
       showUserMenu: false,
       avatarLoadError: false,
       toasts: [],
-      showHygieneModal: false
+      showHygieneModal: false,
+      rankMap: new Map()
     }
   },
   computed: {
@@ -252,6 +262,7 @@ export default {
       // Load data when user becomes authenticated
       if (newUser && !oldUser) {
         this.isLoading = true
+        this.loadRankings()
         this.loadReleases().then(() => {
           if (this.selectedRelease) {
             this.fetchIssues()
@@ -274,6 +285,27 @@ export default {
     document.removeEventListener('click', this.handleClickOutside)
   },
   methods: {
+    async loadRankings() {
+      try {
+        const data = await getPlanRankings()
+        this.rankMap = new Map()
+        if (data && data.issues) {
+          for (const issue of data.issues) {
+            this.rankMap.set(issue.key, issue.rank)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load rankings:', error)
+        this.rankMap = new Map()
+      }
+    },
+
+    mergeRankData() {
+      for (const issue of this.allIssues) {
+        issue.rank = this.rankMap.get(issue.key) || null
+      }
+    },
+
     async loadReleases() {
       try {
         const data = await getReleases()
@@ -437,6 +469,7 @@ export default {
         const data = await getIssues(this.selectedRelease)
 
         this.allIssues = data.issues
+        this.mergeRankData()
         this.filteredIssues = data.issues
         this.lastUpdated = data.lastUpdated
         this.applyFilters()
@@ -510,6 +543,7 @@ export default {
         const result = await refreshIssues(this.releases)
 
         if (result.success) {
+          await this.loadRankings()
           await this.fetchIssues()
           console.log(`Refreshed ${result.totalCount} issues across ${result.results.length} releases`)
           this.showToast(`Successfully refreshed ${result.totalCount} issues!`)
@@ -519,6 +553,7 @@ export default {
             console.error('Some releases failed:', failedReleases)
             alert(`Partially successful. Failed releases: ${failedReleases.map(r => r.release).join(', ')}`)
           }
+          await this.loadRankings()
           await this.fetchIssues()
         }
       } catch (error) {

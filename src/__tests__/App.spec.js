@@ -102,6 +102,18 @@ describe('App', () => {
           json: async () => mockIssues
         })
       }
+      if (url === `${API_ENDPOINT}/plan-rankings`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ lastUpdated: '2025-12-10T10:30:00Z', planId: 2423, totalCount: 0, issues: [] })
+        })
+      }
+      if (url === `${API_ENDPOINT}/plan-rankings`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ lastUpdated: '2025-12-10T10:30:00Z', planId: 2423, totalCount: 0, issues: [] })
+        })
+      }
       return Promise.reject(new Error(`Unknown URL: ${url}`))
     })
   })
@@ -235,6 +247,12 @@ describe('App', () => {
           json: async () => multiIssueData
         })
       }
+      if (url === `${API_ENDPOINT}/plan-rankings`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ lastUpdated: '2025-12-10T10:30:00Z', planId: 2423, totalCount: 0, issues: [] })
+        })
+      }
       return Promise.reject(new Error(`Unknown URL: ${url}`))
     })
 
@@ -264,6 +282,12 @@ describe('App', () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({ releases: [] })
+        })
+      }
+      if (url === `${API_ENDPOINT}/plan-rankings`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ lastUpdated: '2025-12-10T10:30:00Z', planId: 2423, totalCount: 0, issues: [] })
         })
       }
       return Promise.reject(new Error(`Unknown URL: ${url}`))
@@ -302,6 +326,12 @@ describe('App', () => {
           json: async () => mockIssues
         })
       }
+      if (url === `${API_ENDPOINT}/plan-rankings`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ lastUpdated: '2025-12-10T10:30:00Z', planId: 2423, totalCount: 0, issues: [] })
+        })
+      }
       return Promise.reject(new Error(`Unknown URL: ${url}`))
     })
 
@@ -337,6 +367,12 @@ describe('App', () => {
           ok: true,
           json: async () => mockIssues
         }))
+      }
+      if (url === `${API_ENDPOINT}/plan-rankings`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ lastUpdated: '2025-12-10T10:30:00Z', planId: 2423, totalCount: 0, issues: [] })
+        })
       }
       return Promise.reject(new Error(`Unknown URL: ${url}`))
     })
@@ -388,6 +424,12 @@ describe('App', () => {
           json: async () => mockIssues
         })
       }
+      if (url === `${API_ENDPOINT}/plan-rankings`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ lastUpdated: '2025-12-10T10:30:00Z', planId: 2423, totalCount: 0, issues: [] })
+        })
+      }
       return Promise.reject(new Error(`Unknown URL: ${url}`))
     })
 
@@ -417,6 +459,12 @@ describe('App', () => {
       }
       if (url === `${API_ENDPOINT}/issues/rhoai-3.2`) {
         return Promise.reject(new Error('Network error'))
+      }
+      if (url === `${API_ENDPOINT}/plan-rankings`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ lastUpdated: '2025-12-10T10:30:00Z', planId: 2423, totalCount: 0, issues: [] })
+        })
       }
       return Promise.reject(new Error(`Unknown URL: ${url}`))
     })
@@ -449,6 +497,12 @@ describe('App', () => {
           ok: true,
           json: async () => mockIssues
         }))
+      }
+      if (url === `${API_ENDPOINT}/plan-rankings`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ lastUpdated: '2025-12-10T10:30:00Z', planId: 2423, totalCount: 0, issues: [] })
+        })
       }
       return Promise.reject(new Error(`Unknown URL: ${url}`))
     })

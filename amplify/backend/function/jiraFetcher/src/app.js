@@ -12,6 +12,21 @@ const { SSMClient, GetParameterCommand } = require('@aws-sdk/client-ssm');
 const fetch = require('node-fetch');
 const { verifyFirebaseToken } = require('./verifyToken');
 
+const {
+  CUSTOM_FIELDS,
+  buildJqlQuery,
+  buildIntakeFeaturesJqlQuery,
+  buildPlanJqlQuery,
+  buildRfeJql,
+  buildRfeFields,
+  extractRfeKeys,
+  transformIssue,
+  transformIntakeFeature,
+  buildIssueFields,
+  buildIntakeFields,
+  buildPlanFields
+} = require('./shared/jira-helpers');
+
 const app = express();
 app.use(bodyParser.json());
 app.use(awsServerlessExpressMiddleware.eventContext());
@@ -34,6 +49,7 @@ const ssmClient = new SSMClient({ region: AWS_REGION });
  */
 const JIRA_HOST = process.env.JIRA_HOST || 'https://issues.redhat.com';
 const S3_BUCKET = process.env.S3_BUCKET;
+const PLAN_ID = 2423;
 
 // Cache for JIRA_TOKEN (fetched from SSM)
 let JIRA_TOKEN = null;
@@ -65,36 +81,6 @@ async function getJiraToken() {
     throw new Error(`Failed to fetch Jira token from SSM: ${error.message}`);
   }
 }
-const PROJECTS = ['RHAISTRAT', 'RHOAIENG'];
-const ISSUE_TYPES = ['Feature', 'Initiative'];
-
-const CUSTOM_FIELDS = {
-  team: 'customfield_12313240',
-  releaseType: 'customfield_12320840',
-  targetRelease: 'customfield_12319940',
-  statusSummary: 'customfield_12320841',
-  colorStatus: 'customfield_12320845',
-  docsRequired: 'customfield_12324040',
-  targetEnd: 'customfield_12313942',
-  // RICE scoring fields
-  reach: 'customfield_12320846',
-  impact: 'customfield_12320740',
-  confidence: 'customfield_12320847',
-  effort: 'customfield_12320848',
-  riceScore: 'customfield_12326242'
-};
-
-/**
- * Build JQL query string
- * Fetches all features/initiatives for the project and release (no component filter)
- */
-function buildJqlQuery(targetRelease) {
-  const projectFilter = `project IN (${PROJECTS.join(', ')})`;
-  const issueTypeFilter = `issuetype IN (${ISSUE_TYPES.join(', ')})`;
-  const targetVersionFilter = `"Target Version" = ${targetRelease}`;
-
-  return `${projectFilter} AND ${issueTypeFilter} AND ${targetVersionFilter}`;
-}
 
 /**
  * Fetch issues from Jira with pagination
@@ -103,21 +89,7 @@ async function fetchIssuesFromJira(targetRelease) {
   const jiraToken = await getJiraToken();
 
   const jql = buildJqlQuery(targetRelease);
-  const fields = [
-    'key', 'summary', 'issuetype', 'assignee', 'status', 'created', 'issuelinks', 'components',
-    CUSTOM_FIELDS.team,
-    CUSTOM_FIELDS.releaseType,
-    CUSTOM_FIELDS.targetRelease,
-    CUSTOM_FIELDS.statusSummary,
-    CUSTOM_FIELDS.colorStatus,
-    CUSTOM_FIELDS.docsRequired,
-    CUSTOM_FIELDS.targetEnd,
-    CUSTOM_FIELDS.reach,
-    CUSTOM_FIELDS.impact,
-    CUSTOM_FIELDS.confidence,
-    CUSTOM_FIELDS.effort,
-    CUSTOM_FIELDS.riceScore
-  ].join(',');
+  const fields = buildIssueFields();
 
   const issues = [];
   let startAt = 0;
@@ -162,177 +134,6 @@ async function fetchIssuesFromJira(targetRelease) {
 }
 
 /**
- * Get Status Summary update date from changelog
- */
-function getStatusSummaryUpdatedDate(issue) {
-  if (!issue.changelog || !issue.changelog.histories) {
-    return null;
-  }
-
-  let mostRecentDate = null;
-
-  for (const history of issue.changelog.histories) {
-    for (const item of history.items) {
-      if (item.field === 'Status Summary' || item.field === CUSTOM_FIELDS.statusSummary) {
-        let timestamp = history.created;
-        if (timestamp.includes('+')) {
-          timestamp = timestamp.split('.')[0] + 'Z';
-        } else if (timestamp.includes('T') && timestamp.length > 19) {
-          timestamp = timestamp.substring(0, 19) + 'Z';
-        }
-        mostRecentDate = timestamp;
-      }
-    }
-  }
-
-  return mostRecentDate;
-}
-
-/**
- * Get most recent status change date from changelog
- */
-function getStatusEnteredAtDate(issue) {
-  if (!issue.changelog || !issue.changelog.histories) {
-    return issue.fields.created;
-  }
-
-  let mostRecentStatusChange = null;
-
-  for (const history of issue.changelog.histories) {
-    for (const item of history.items) {
-      if (item.field === 'status') {
-        let timestamp = history.created;
-        if (timestamp.includes('+')) {
-          timestamp = timestamp.split('.')[0] + 'Z';
-        } else if (timestamp.includes('T') && timestamp.length > 19) {
-          timestamp = timestamp.substring(0, 19) + 'Z';
-        }
-        mostRecentStatusChange = timestamp;
-      }
-    }
-  }
-
-  return mostRecentStatusChange || issue.fields.created;
-}
-
-/**
- * Serialize field value
- */
-function serializeField(fieldValue) {
-  if (fieldValue === null || fieldValue === undefined) {
-    return null;
-  }
-  if (typeof fieldValue === 'string') {
-    return fieldValue;
-  }
-  if (Array.isArray(fieldValue)) {
-    if (fieldValue.length === 0) {
-      return null;
-    }
-    const firstItem = fieldValue[0];
-    if (firstItem && firstItem.name) {
-      return firstItem.name;
-    }
-    return String(firstItem);
-  }
-  if (fieldValue.name) {
-    return fieldValue.name;
-  }
-  if (fieldValue.value) {
-    return fieldValue.value;
-  }
-  return String(fieldValue);
-}
-
-/**
- * Serialize list field
- */
-function serializeListField(fieldValue) {
-  if (fieldValue === null || fieldValue === undefined) {
-    return null;
-  }
-  if (typeof fieldValue === 'string') {
-    return [fieldValue];
-  }
-  if (Array.isArray(fieldValue)) {
-    if (fieldValue.length === 0) {
-      return null;
-    }
-    return fieldValue.map(item => {
-      if (item && item.name) {
-        return item.name;
-      }
-      return String(item);
-    });
-  }
-  if (fieldValue.name) {
-    return [fieldValue.name];
-  }
-  if (fieldValue.value) {
-    return [fieldValue.value];
-  }
-  return [String(fieldValue)];
-}
-
-/**
- * Transform raw Jira issue
- */
-function transformIssue(issue, rfeMap = {}) {
-  const fields = issue.fields;
-  const renderedFields = issue.renderedFields || {};
-
-  const statusSummary = renderedFields[CUSTOM_FIELDS.statusSummary] ||
-    serializeField(fields[CUSTOM_FIELDS.statusSummary]);
-
-  // Extract components as an array of names
-  const components = fields.components && Array.isArray(fields.components)
-    ? fields.components.map(c => c.name).filter(Boolean)
-    : [];
-
-  // Get clones links for RFE checking
-  // Only consider issues from RHAIRFE project as actual RFEs
-  const clonesLinks = getClonesLinks(issue);
-  let linkedRfeKey = null;
-  let linkedRfeApproved = false;
-
-  for (const key of clonesLinks) {
-    // Only treat RHAIRFE issues as RFEs
-    if (!key.startsWith('RHAIRFE-')) {
-      continue;
-    }
-    linkedRfeKey = key;
-    // RFE is in rfeMap only if it was approved (currently or previously)
-    if (rfeMap[key]) {
-      linkedRfeApproved = true;
-      break;
-    }
-  }
-
-  return {
-    key: issue.key,
-    summary: fields.summary,
-    issueType: fields.issuetype?.name || null,
-    assignee: fields.assignee?.displayName || null,
-    status: fields.status?.name || null,
-    team: serializeField(fields[CUSTOM_FIELDS.team]),
-    components: components,
-    releaseType: serializeField(fields[CUSTOM_FIELDS.releaseType]),
-    targetRelease: serializeListField(fields[CUSTOM_FIELDS.targetRelease]),
-    statusSummary: statusSummary,
-    statusSummaryUpdated: getStatusSummaryUpdatedDate(issue),
-    statusEnteredAt: getStatusEnteredAtDate(issue),
-    colorStatus: serializeField(fields[CUSTOM_FIELDS.colorStatus]),
-    docsRequired: serializeField(fields[CUSTOM_FIELDS.docsRequired]),
-    targetEnd: fields[CUSTOM_FIELDS.targetEnd] || null,
-    riceScore: fields[CUSTOM_FIELDS.riceScore] || null,
-    riceStatus: computeRiceStatus(fields),
-    linkedRfeKey: linkedRfeKey,
-    linkedRfeApproved: linkedRfeApproved,
-    url: `https://issues.redhat.com/browse/${issue.key}`
-  };
-}
-
-/**
  * Fetch specific RFEs by their keys
  * Only returns RFEs that are in approved or post-approval statuses
  * Returns map of RFE key -> RFE data for quick lookup
@@ -344,12 +145,8 @@ async function fetchRfesByKeys(rfeKeys) {
 
   const jiraToken = await getJiraToken();
 
-  // Build JQL to fetch specific RFEs that are in approved/post-approval status
-  const keysFilter = `key IN (${rfeKeys.join(', ')})`;
-  const statusFilter = 'status IN (Approved, "In Progress", Review, Resolved, Closed)';
-  const jql = `project = RHAIRFE AND ${keysFilter} AND ${statusFilter}`;
-
-  const fields = ['key', 'summary', 'status', 'components', 'reporter', 'assignee'].join(',');
+  const jql = buildRfeJql(rfeKeys);
+  const fields = buildRfeFields();
 
   const url = new URL(`${JIRA_HOST}/rest/api/2/search`);
   url.searchParams.set('jql', jql);
@@ -387,127 +184,12 @@ async function fetchRfesByKeys(rfeKeys) {
 }
 
 /**
- * Extract all RHAIRFE keys from a list of raw issues
- */
-function extractRfeKeys(rawIssues) {
-  const rfeKeys = new Set();
-  for (const issue of rawIssues) {
-    const clonesLinks = getClonesLinks(issue);
-    for (const key of clonesLinks) {
-      if (key.startsWith('RHAIRFE-')) {
-        rfeKeys.add(key);
-      }
-    }
-  }
-  return Array.from(rfeKeys);
-}
-
-/**
- * Build JQL query for intake features (New status, no target release)
- * Fetches all features/initiatives in New status (no component filter)
- */
-function buildIntakeFeaturesJqlQuery() {
-  const projectFilter = `project IN (${PROJECTS.join(', ')})`;
-  const issueTypeFilter = `issuetype IN (${ISSUE_TYPES.join(', ')})`;
-  const statusFilter = 'status = New';
-  const noTargetRelease = '"Target Version" IS EMPTY';
-
-  return `${projectFilter} AND ${issueTypeFilter} AND ${statusFilter} AND ${noTargetRelease}`;
-}
-
-/**
- * Get "clones" links from a feature (links to RFEs)
- */
-function getClonesLinks(issue) {
-  if (!issue.fields.issuelinks) return [];
-
-  return issue.fields.issuelinks
-    .filter(link => {
-      // "clones" link type - the Feature clones the RFE
-      // So we look for outwardIssue with type name "Cloners" or similar
-      // The link type name is typically "Cloners" and relation is "clones"
-      return link.type &&
-             link.type.outward === 'clones' &&
-             link.outwardIssue;
-    })
-    .map(link => link.outwardIssue.key);
-}
-
-/**
- * Compute RICE status for a feature
- * @returns 'complete' | 'partial' | 'none'
- */
-function computeRiceStatus(fields) {
-  const reach = fields[CUSTOM_FIELDS.reach];
-  const impact = fields[CUSTOM_FIELDS.impact];
-  const confidence = fields[CUSTOM_FIELDS.confidence];
-  const effort = fields[CUSTOM_FIELDS.effort];
-
-  const filledCount = [reach, impact, confidence, effort].filter(v => v != null).length;
-
-  if (filledCount === 4) return 'complete';
-  if (filledCount > 0) return 'partial';
-  return 'none';
-}
-
-/**
- * Transform a feature for the intake view
- */
-function transformIntakeFeature(issue, rfeMap) {
-  const fields = issue.fields;
-  const clonesLinks = getClonesLinks(issue);
-
-  // Find linked RFE info
-  let linkedRfe = null;
-  for (const rfeKey of clonesLinks) {
-    if (rfeMap[rfeKey]) {
-      linkedRfe = rfeMap[rfeKey];
-      break; // Use first matching approved RFE
-    }
-  }
-
-  // Get component (first one)
-  const component = fields.components && fields.components.length > 0
-    ? fields.components[0].name
-    : null;
-
-  return {
-    key: issue.key,
-    title: fields.summary,
-    issueType: fields.issuetype?.name || null,
-    assignee: fields.assignee?.displayName || null,
-    status: fields.status?.name || null,
-    component: component,
-    team: serializeField(fields[CUSTOM_FIELDS.team]),
-    reach: fields[CUSTOM_FIELDS.reach],
-    impact: fields[CUSTOM_FIELDS.impact],
-    confidence: fields[CUSTOM_FIELDS.confidence],
-    effort: fields[CUSTOM_FIELDS.effort],
-    riceScore: fields[CUSTOM_FIELDS.riceScore],
-    riceStatus: computeRiceStatus(fields),
-    linkedRfe: linkedRfe,
-    url: `https://issues.redhat.com/browse/${issue.key}`
-  };
-}
-
-/**
  * Fetch intake features from Jira with issue links
  */
 async function fetchIntakeFeatures() {
   const jiraToken = await getJiraToken();
   const jql = buildIntakeFeaturesJqlQuery();
-
-  const fields = [
-    'key', 'summary', 'issuetype', 'assignee', 'status', 'created', 'issuelinks', 'components',
-    CUSTOM_FIELDS.team,
-    CUSTOM_FIELDS.releaseType,
-    CUSTOM_FIELDS.targetRelease,
-    CUSTOM_FIELDS.reach,
-    CUSTOM_FIELDS.impact,
-    CUSTOM_FIELDS.confidence,
-    CUSTOM_FIELDS.effort,
-    CUSTOM_FIELDS.riceScore
-  ].join(',');
+  const fields = buildIntakeFields();
 
   const issues = [];
   let startAt = 0;
@@ -631,6 +313,94 @@ async function refreshIntakeFeatures() {
 }
 
 /**
+ * Fetch plan issues from Jira with pagination
+ * Skips changelog to reduce payload for ~1000 issues
+ */
+async function fetchPlanIssuesFromJira() {
+  const jiraToken = await getJiraToken();
+
+  const jql = buildPlanJqlQuery();
+  const fields = buildPlanFields();
+
+  const issues = [];
+  let startAt = 0;
+  const maxResults = 100;
+
+  while (true) {
+    const url = new URL(`${JIRA_HOST}/rest/api/2/search`);
+    url.searchParams.set('jql', jql);
+    url.searchParams.set('startAt', startAt.toString());
+    url.searchParams.set('maxResults', maxResults.toString());
+    url.searchParams.set('fields', fields);
+    url.searchParams.set('expand', 'renderedFields');
+
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Authorization': `Bearer ${jiraToken}`,
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Jira API error fetching plan issues (${response.status}): ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.issues || data.issues.length === 0) {
+      break;
+    }
+
+    issues.push(...data.issues);
+
+    if (data.issues.length < maxResults) {
+      break;
+    }
+
+    startAt += maxResults;
+  }
+
+  return issues;
+}
+
+/**
+ * Refresh plan rankings data
+ */
+async function refreshPlanRankings() {
+  console.log('Fetching plan rankings...');
+  const rawIssues = await fetchPlanIssuesFromJira();
+  console.log(`Found ${rawIssues.length} issues in plan ${PLAN_ID}`);
+
+  // Extract linked RFE keys and fetch only those
+  const rfeKeys = extractRfeKeys(rawIssues);
+  console.log(`Found ${rfeKeys.length} linked RFEs to check`);
+
+  let rfeMap = {};
+  if (rfeKeys.length > 0) {
+    rfeMap = await fetchRfesByKeys(rfeKeys);
+    console.log(`${Object.keys(rfeMap).length} of ${rfeKeys.length} RFEs are approved`);
+  }
+
+  // Transform issues and add rank (1-based positional index)
+  const rankedIssues = rawIssues.map((issue, index) => ({
+    ...transformIssue(issue, rfeMap),
+    rank: index + 1
+  }));
+
+  const output = {
+    lastUpdated: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    planId: PLAN_ID,
+    totalCount: rankedIssues.length,
+    issues: rankedIssues
+  };
+
+  await uploadToS3('plan-rankings.json', output);
+
+  return { count: rankedIssues.length };
+}
+
+/**
  * Refresh all releases - shared logic for manual and scheduled refreshes
  */
 async function refreshAllReleases(releases) {
@@ -713,6 +483,22 @@ async function refreshAllReleases(releases) {
     console.error('Error refreshing intake features:', error);
     results.push({
       release: 'intake',
+      count: 0,
+      error: error.message
+    });
+  }
+
+  // Also refresh plan rankings
+  try {
+    const planResult = await refreshPlanRankings();
+    results.push({
+      release: 'plan-rankings',
+      count: planResult.count
+    });
+  } catch (error) {
+    console.error('Error refreshing plan rankings:', error);
+    results.push({
+      release: 'plan-rankings',
       count: 0,
       error: error.message
     });
