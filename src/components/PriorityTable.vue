@@ -21,13 +21,13 @@
             v-for="(issue, index) in sortedIssues"
             :key="issue.key"
             class="border-t border-gray-100 border-l-4"
-            :class="rowClasses(issue)"
+            :class="rowClasses()"
           >
             <td class="px-3 py-2">
               <span
                 data-testid="rank-badge"
                 class="inline-flex items-center justify-center w-8 h-6 rounded text-xs font-bold"
-                :class="rankBadgeClass(issue.rank)"
+                :class="rankBadgeClass()"
               >
                 {{ issue.displayRank }}
               </span>
@@ -81,9 +81,6 @@
 </template>
 
 <script>
-import { getRankTier } from '../utils/priorityRules.js'
-
-const IN_PROGRESS_STATUSES = ['In Progress', 'Review', 'Testing']
 
 export default {
   name: 'PriorityTable',
@@ -100,27 +97,11 @@ export default {
     }
   },
   methods: {
-    rowClasses(issue) {
-      const classes = []
-      const tier = getRankTier(issue.rank)
-
-      // Tier-colored left border
-      if (tier === 'top') classes.push('border-l-green-500')
-      else if (tier === 'high') classes.push('border-l-blue-500')
-      else classes.push('border-l-gray-300')
-
-      // Amber highlight for in-progress items ranked >100
-      if (issue.rank > 100 && IN_PROGRESS_STATUSES.includes(issue.status)) {
-        classes.push('bg-amber-50')
-      }
-
-      return classes
+    rowClasses() {
+      return ['border-l-gray-300']
     },
-    rankBadgeClass(rank) {
-      const tier = getRankTier(rank)
-      if (tier === 'top') return 'bg-green-500 text-white'
-      if (tier === 'high') return 'bg-blue-500 text-white'
-      return 'bg-gray-300 text-gray-700'
+    rankBadgeClass() {
+      return 'bg-gray-100 text-gray-700'
     },
     statusBadgeClass(status) {
       const colors = {

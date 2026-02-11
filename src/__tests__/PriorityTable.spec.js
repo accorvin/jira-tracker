@@ -53,40 +53,17 @@ describe('PriorityTable', () => {
     expect(rankBadges[1].text()).toBe('12')
   })
 
-  it('displays rank badges with tier colors', () => {
+  it('displays neutral rank badge styling for all issues', () => {
     const wrapper = mount(PriorityTable, {
       props: { issues: mockIssues }
     })
     const rankBadges = wrapper.findAll('[data-testid="rank-badge"]')
     expect(rankBadges.length).toBe(3)
 
-    // Rank 1 (top tier) - green
-    expect(rankBadges[0].classes()).toContain('bg-green-500')
-    // Rank 2 (top tier) - green
-    expect(rankBadges[1].classes()).toContain('bg-green-500')
-    // Rank 101 (low tier) - gray
-    expect(rankBadges[2].classes()).toContain('bg-gray-300')
-  })
-
-  it('highlights in-progress items ranked >100 with amber background', () => {
-    const wrapper = mount(PriorityTable, {
-      props: { issues: mockIssues }
-    })
-    const rows = wrapper.findAll('tbody tr')
-    // RHOAIENG-003 is rank 101, In Progress - should have amber highlight
-    const rank101Row = rows[2] // sorted last
-    expect(rank101Row.classes()).toContain('bg-amber-50')
-  })
-
-  it('does not highlight idle items ranked >100 with amber', () => {
-    const issues = [
-      { key: 'A-1', summary: 'Test', team: 'Team A', status: 'New', rank: 150, colorStatus: null, targetRelease: [] }
-    ]
-    const wrapper = mount(PriorityTable, {
-      props: { issues }
-    })
-    const rows = wrapper.findAll('tbody tr')
-    expect(rows[0].classes()).not.toContain('bg-amber-50')
+    for (const badge of rankBadges) {
+      expect(badge.classes()).toContain('bg-gray-100')
+      expect(badge.classes()).toContain('text-gray-700')
+    }
   })
 
   it('renders issue keys as links to Jira', () => {
@@ -98,15 +75,14 @@ describe('PriorityTable', () => {
     expect(links[0].attributes('href')).toContain('RHOAIENG-001')
   })
 
-  it('shows tier-colored left borders on rows', () => {
+  it('shows neutral left borders on all rows', () => {
     const wrapper = mount(PriorityTable, {
       props: { issues: mockIssues }
     })
     const rows = wrapper.findAll('tbody tr')
-    // Rank 1 (top) - green left border
-    expect(rows[0].classes()).toContain('border-l-green-500')
-    // Rank 101 (low) - gray left border
-    expect(rows[2].classes()).toContain('border-l-gray-300')
+    for (const row of rows) {
+      expect(row.classes()).toContain('border-l-gray-300')
+    }
   })
 
   it('renders empty state when no issues', () => {
