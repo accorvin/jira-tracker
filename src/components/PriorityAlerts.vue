@@ -46,9 +46,9 @@
             <span class="font-semibold text-gray-900">{{ violation.team }}</span>
             <span class="text-gray-600">
               — Working on
-              <span class="font-medium text-gray-900">{{ violation.inProgressIssue.key }}</span>
+              <a :href="'https://issues.redhat.com/browse/' + violation.inProgressIssue.key" target="_blank" rel="noopener noreferrer" class="font-medium text-primary-600 hover:text-primary-800">{{ violation.inProgressIssue.key }}</a>
               (rank <span class="font-medium">#{{ violation.inProgressRank }}</span>) while
-              <span class="font-medium text-gray-900">{{ violation.higherRankedIdleIssue.key }}</span>
+              <a :href="'https://issues.redhat.com/browse/' + violation.higherRankedIdleIssue.key" target="_blank" rel="noopener noreferrer" class="font-medium text-primary-600 hover:text-primary-800">{{ violation.higherRankedIdleIssue.key }}</a>
               (rank <span class="font-medium">#{{ violation.idleRank }}</span>) is not started
             </span>
           </div>
@@ -61,7 +61,7 @@
           class="border-l-4 border-amber-500 rounded-lg bg-white shadow-sm p-3"
         >
           <div class="text-sm text-gray-600">
-            <span class="font-medium text-gray-900">{{ issue.key }}</span>
+            <a :href="'https://issues.redhat.com/browse/' + issue.key" target="_blank" rel="noopener noreferrer" class="font-medium text-primary-600 hover:text-primary-800">{{ issue.key }}</a>
             is in progress at rank <span class="font-medium">#{{ issue.rank }}</span>
             (threshold: 100)
           </div>
