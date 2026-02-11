@@ -7,29 +7,34 @@ const app = require('./app');
 const server = awsServerlessExpress.createServer(app);
 
 /**
- * Handle scheduled EventBridge refresh
+ * Handle scheduled EventBridge or manual refresh
  */
 async function handleScheduledRefresh(event, context) {
   const { readFromS3, refreshAllReleases } = require('./app');
 
   try {
-    console.log('Scheduled refresh triggered');
+    const isManual = event.source === 'manual-refresh';
+    console.log(`${isManual ? 'Manual' : 'Scheduled'} refresh triggered`);
 
-    // Read releases.json from S3
+    // Use releases from event payload (manual) or read from S3 (scheduled)
     let releases;
-    try {
-      const data = await readFromS3('releases.json');
-      releases = data.releases;
-    } catch (error) {
-      console.log('No releases.json found in S3 or error reading it, skipping refresh');
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ message: 'No releases to refresh' })
-      };
+    if (isManual && event.releases) {
+      releases = event.releases;
+    } else {
+      try {
+        const data = await readFromS3('releases.json');
+        releases = data.releases;
+      } catch (error) {
+        console.log('No releases.json found in S3 or error reading it, skipping refresh');
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ message: 'No releases to refresh' })
+        };
+      }
     }
 
     if (!releases || !Array.isArray(releases) || releases.length === 0) {
-      console.log('No releases found in S3, skipping refresh');
+      console.log('No releases found, skipping refresh');
       return {
         statusCode: 200,
         body: JSON.stringify({ message: 'No releases to refresh' })
@@ -60,8 +65,8 @@ async function handleScheduledRefresh(event, context) {
 exports.handler = async (event, context) => {
   console.log(`EVENT: ${JSON.stringify(event)}`);
 
-  // Check if invoked by EventBridge (scheduled trigger)
-  if (event.source === 'aws.events') {
+  // Check if invoked by EventBridge (scheduled trigger) or manual refresh
+  if (event.source === 'aws.events' || event.source === 'manual-refresh') {
     return await handleScheduledRefresh(event, context);
   }
 

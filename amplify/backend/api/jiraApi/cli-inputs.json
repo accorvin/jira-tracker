@@ -3,7 +3,7 @@
   "paths": {
     "/refresh": {
       "name": "/refresh",
-      "lambdaFunction": "jiraFetcher",
+      "lambdaFunction": "issuesReader",
       "permissions": {
         "setting": "open"
       }

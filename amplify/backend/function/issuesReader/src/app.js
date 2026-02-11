@@ -8,6 +8,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const awsServerlessExpressMiddleware = require('aws-serverless-express/middleware');
 const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 const { verifyFirebaseToken } = require('./verifyToken');
 
 const app = express();
@@ -22,8 +23,9 @@ app.use(function(req, res, next) {
   next();
 });
 
-// S3 Client
+// AWS Clients
 const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
+const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION || 'us-east-1' });
 
 const S3_BUCKET = process.env.S3_BUCKET;
 
@@ -307,7 +309,56 @@ app.get('/plan-rankings', async function(req, res) {
   }
 });
 
+/**
+ * POST /refresh - Trigger async refresh of Jira data
+ */
+app.post('/refresh', async function(req, res) {
+  try {
+    // Verify Firebase token
+    const authHeader = req.headers.authorization;
+    const verification = await verifyFirebaseToken(authHeader);
+
+    if (!verification.valid) {
+      return res.status(401).json({
+        error: verification.error
+      });
+    }
+
+    const { releases } = req.body;
+
+    if (!releases || !Array.isArray(releases) || releases.length === 0) {
+      return res.status(400).json({
+        error: 'Request must include "releases" array with at least one release'
+      });
+    }
+
+    console.log(`Refresh request from ${verification.email} for ${releases.length} releases`);
+
+    // Invoke jiraFetcher Lambda asynchronously
+    const functionName = `jiraFetcher-${process.env.ENV}`;
+    const command = new InvokeCommand({
+      FunctionName: functionName,
+      InvocationType: 'Event',
+      Payload: JSON.stringify({ source: 'manual-refresh', releases })
+    });
+
+    await lambdaClient.send(command);
+
+    res.status(202).json({ success: true, message: 'Refresh started' });
+
+  } catch (error) {
+    console.error('Refresh error:', error);
+    res.status(500).json({
+      error: error.message
+    });
+  }
+});
+
 // Handle OPTIONS for CORS preflight
+app.options('/refresh', function(req, res) {
+  res.status(200).end();
+});
+
 app.options('/issues', function(req, res) {
   res.status(200).end();
 });

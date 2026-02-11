@@ -280,19 +280,20 @@ async function readFromS3(key) {
 /**
  * Refresh intake features data
  */
-async function refreshIntakeFeatures() {
+async function refreshIntakeFeatures(existingRfeMap) {
   console.log('Fetching intake features...');
   const rawFeatures = await fetchIntakeFeatures();
   console.log(`Found ${rawFeatures.length} features in New status`);
 
-  // Extract linked RFE keys and fetch only those
-  const rfeKeys = extractRfeKeys(rawFeatures);
-  console.log(`Found ${rfeKeys.length} linked RFEs to check`);
-
-  let rfeMap = {};
-  if (rfeKeys.length > 0) {
-    rfeMap = await fetchRfesByKeys(rfeKeys);
-    console.log(`${Object.keys(rfeMap).length} of ${rfeKeys.length} RFEs are approved`);
+  // Use existing RFE map if provided, otherwise fetch
+  let rfeMap = existingRfeMap || {};
+  if (!existingRfeMap) {
+    const rfeKeys = extractRfeKeys(rawFeatures);
+    console.log(`Found ${rfeKeys.length} linked RFEs to check`);
+    if (rfeKeys.length > 0) {
+      rfeMap = await fetchRfesByKeys(rfeKeys);
+      console.log(`${Object.keys(rfeMap).length} of ${rfeKeys.length} RFEs are approved`);
+    }
   }
 
   // Transform and filter to only features linked to approved RFEs
@@ -367,19 +368,20 @@ async function fetchPlanIssuesFromJira() {
 /**
  * Refresh plan rankings data
  */
-async function refreshPlanRankings() {
+async function refreshPlanRankings(existingRfeMap) {
   console.log('Fetching plan rankings...');
   const rawIssues = await fetchPlanIssuesFromJira();
   console.log(`Found ${rawIssues.length} issues in plan ${PLAN_ID}`);
 
-  // Extract linked RFE keys and fetch only those
-  const rfeKeys = extractRfeKeys(rawIssues);
-  console.log(`Found ${rfeKeys.length} linked RFEs to check`);
-
-  let rfeMap = {};
-  if (rfeKeys.length > 0) {
-    rfeMap = await fetchRfesByKeys(rfeKeys);
-    console.log(`${Object.keys(rfeMap).length} of ${rfeKeys.length} RFEs are approved`);
+  // Use existing RFE map if provided, otherwise fetch
+  let rfeMap = existingRfeMap || {};
+  if (!existingRfeMap) {
+    const rfeKeys = extractRfeKeys(rawIssues);
+    console.log(`Found ${rfeKeys.length} linked RFEs to check`);
+    if (rfeKeys.length > 0) {
+      rfeMap = await fetchRfesByKeys(rfeKeys);
+      console.log(`${Object.keys(rfeMap).length} of ${rfeKeys.length} RFEs are approved`);
+    }
   }
 
   // Transform issues and add rank (1-based positional index)
@@ -472,36 +474,24 @@ async function refreshAllReleases(releases) {
     }
   }
 
-  // Also refresh intake features
-  try {
-    const intakeResult = await refreshIntakeFeatures();
-    results.push({
-      release: 'intake',
-      count: intakeResult.count
-    });
-  } catch (error) {
-    console.error('Error refreshing intake features:', error);
-    results.push({
-      release: 'intake',
-      count: 0,
-      error: error.message
-    });
+  // Refresh intake features and plan rankings in parallel, reusing rfeMap
+  const [intakeOutcome, planOutcome] = await Promise.allSettled([
+    refreshIntakeFeatures(rfeMap),
+    refreshPlanRankings(rfeMap)
+  ]);
+
+  if (intakeOutcome.status === 'fulfilled') {
+    results.push({ release: 'intake', count: intakeOutcome.value.count });
+  } else {
+    console.error('Error refreshing intake features:', intakeOutcome.reason);
+    results.push({ release: 'intake', count: 0, error: intakeOutcome.reason.message });
   }
 
-  // Also refresh plan rankings
-  try {
-    const planResult = await refreshPlanRankings();
-    results.push({
-      release: 'plan-rankings',
-      count: planResult.count
-    });
-  } catch (error) {
-    console.error('Error refreshing plan rankings:', error);
-    results.push({
-      release: 'plan-rankings',
-      count: 0,
-      error: error.message
-    });
+  if (planOutcome.status === 'fulfilled') {
+    results.push({ release: 'plan-rankings', count: planOutcome.value.count });
+  } else {
+    console.error('Error refreshing plan rankings:', planOutcome.reason);
+    results.push({ release: 'plan-rankings', count: 0, error: planOutcome.reason.message });
   }
 
   const allSucceeded = results.every(r => !r.error);
@@ -515,19 +505,6 @@ async function refreshAllReleases(releases) {
  */
 app.post('/refresh', async function(req, res) {
   try {
-    // Verify Firebase token
-    const authHeader = req.headers.authorization;
-    const verification = await verifyFirebaseToken(authHeader);
-
-    if (!verification.valid) {
-      return res.status(401).json({
-        success: false,
-        error: verification.error
-      });
-    }
-
-    console.log(`Refresh request from: ${verification.email}`);
-
     // Get releases from request body
     const { releases } = req.body;
     if (!releases || !Array.isArray(releases) || releases.length === 0) {

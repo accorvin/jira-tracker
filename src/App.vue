@@ -542,7 +542,9 @@ export default {
       try {
         const result = await refreshIssues(this.releases)
 
-        if (result.success) {
+        if (result.async) {
+          this.showToast('Refresh started — data will update shortly', 'info', 5000)
+        } else if (result.success) {
           await this.loadRankings()
           await this.fetchIssues()
           console.log(`Refreshed ${result.totalCount} issues across ${result.results.length} releases`)

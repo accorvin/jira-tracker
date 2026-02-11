@@ -58,6 +58,10 @@ export async function refreshIssues(releases) {
       body: JSON.stringify({ releases })
     });
 
+    if (response.status === 202) {
+      return { success: true, async: true };
+    }
+
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.error || `HTTP ${response.status}`);
