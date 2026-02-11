@@ -223,7 +223,7 @@ export default {
   },
   data() {
     return {
-      currentView: 'release-tracking',
+      currentView: localStorage.getItem('currentView') || 'release-tracking',
       allIssues: [],
       filteredIssues: [],
       lastUpdated: null,
@@ -612,6 +612,7 @@ export default {
 
     handleViewChange(view) {
       this.currentView = view
+      localStorage.setItem('currentView', view)
     },
 
     parseUrlParams() {
