@@ -8,14 +8,6 @@
             "Arn"
           ],
           "category": "function",
-          "resourceName": "jiraFetcher"
-        },
-        {
-          "attributes": [
-            "Name",
-            "Arn"
-          ],
-          "category": "function",
           "resourceName": "issuesReader"
         }
       ],
