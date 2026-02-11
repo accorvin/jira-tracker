@@ -29,7 +29,7 @@
                 class="inline-flex items-center justify-center w-8 h-6 rounded text-xs font-bold"
                 :class="rankBadgeClass(issue.rank)"
               >
-                {{ index + 1 }}
+                {{ issue.displayRank }}
               </span>
             </td>
             <td class="px-3 py-2">

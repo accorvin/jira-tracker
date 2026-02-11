@@ -7,9 +7,9 @@ import PriorityTable from '../components/PriorityTable.vue'
 
 describe('PriorityTable', () => {
   const mockIssues = [
-    { key: 'RHOAIENG-001', summary: 'Feature A', team: 'Team X', status: 'In Progress', rank: 1, colorStatus: 'Green', targetRelease: ['rhoai-3.2'] },
-    { key: 'RHOAIENG-002', summary: 'Feature B', team: 'Team Y', status: 'New', rank: 2, colorStatus: null, targetRelease: ['rhoai-3.2'] },
-    { key: 'RHOAIENG-003', summary: 'Feature C', team: 'Team Z', status: 'In Progress', rank: 101, colorStatus: 'Yellow', targetRelease: ['rhoai-3.2'] }
+    { key: 'RHOAIENG-001', summary: 'Feature A', team: 'Team X', status: 'In Progress', rank: 1, displayRank: 1, colorStatus: 'Green', targetRelease: ['rhoai-3.2'] },
+    { key: 'RHOAIENG-002', summary: 'Feature B', team: 'Team Y', status: 'New', rank: 2, displayRank: 2, colorStatus: null, targetRelease: ['rhoai-3.2'] },
+    { key: 'RHOAIENG-003', summary: 'Feature C', team: 'Team Z', status: 'In Progress', rank: 101, displayRank: 3, colorStatus: 'Yellow', targetRelease: ['rhoai-3.2'] }
   ]
 
   it('renders a table with correct columns', () => {
@@ -40,17 +40,17 @@ describe('PriorityTable', () => {
     expect(rows[2].text()).toContain('RHOAIENG-003')
   })
 
-  it('displays 1-based position in rank badges', () => {
+  it('displays displayRank values in rank badges', () => {
     const issues = [
-      { key: 'A-1', summary: 'First', team: 'T', status: 'New', rank: 15, colorStatus: null, targetRelease: [] },
-      { key: 'A-2', summary: 'Second', team: 'T', status: 'New', rank: 42, colorStatus: null, targetRelease: [] }
+      { key: 'A-1', summary: 'First', team: 'T', status: 'New', rank: 15, displayRank: 5, colorStatus: null, targetRelease: [] },
+      { key: 'A-2', summary: 'Second', team: 'T', status: 'New', rank: 42, displayRank: 12, colorStatus: null, targetRelease: [] }
     ]
     const wrapper = mount(PriorityTable, {
       props: { issues }
     })
     const rankBadges = wrapper.findAll('[data-testid="rank-badge"]')
-    expect(rankBadges[0].text()).toBe('1')
-    expect(rankBadges[1].text()).toBe('2')
+    expect(rankBadges[0].text()).toBe('5')
+    expect(rankBadges[1].text()).toBe('12')
   })
 
   it('displays rank badges with tier colors', () => {

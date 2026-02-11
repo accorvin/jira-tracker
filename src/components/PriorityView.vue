@@ -88,7 +88,9 @@ export default {
       try {
         const data = await getPlanRankings()
         const DONE_STATUSES = ['Resolved', 'Closed']
-        this.allIssues = (data.issues || []).filter(i => !DONE_STATUSES.includes(i.status))
+        this.allIssues = (data.issues || [])
+          .filter(i => !DONE_STATUSES.includes(i.status))
+          .map((issue, index) => ({ ...issue, displayRank: index + 1 }))
       } catch (error) {
         console.error('Failed to load plan rankings:', error)
         this.allIssues = []
