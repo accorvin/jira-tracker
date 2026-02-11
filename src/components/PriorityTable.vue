@@ -20,8 +20,8 @@
           <tr
             v-for="(issue, index) in sortedIssues"
             :key="issue.key"
-            class="border-t border-gray-100 border-l-4"
-            :class="rowClasses()"
+            class="border-t border-gray-100 border-l-4 transition-colors hover:bg-blue-50"
+            :class="[index % 2 === 1 ? 'bg-gray-50' : 'bg-white', 'border-l-gray-300']"
           >
             <td class="px-3 py-2">
               <span
@@ -97,9 +97,6 @@ export default {
     }
   },
   methods: {
-    rowClasses() {
-      return ['border-l-gray-300']
-    },
     rankBadgeClass() {
       return 'bg-gray-100 text-gray-700'
     },
