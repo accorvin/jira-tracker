@@ -223,7 +223,7 @@ export default {
   },
   data() {
     return {
-      currentView: localStorage.getItem('currentView') || 'release-tracking',
+      currentView: new URLSearchParams(window.location.search).get('view') || localStorage.getItem('currentView') || 'release-tracking',
       allIssues: [],
       filteredIssues: [],
       lastUpdated: null,
@@ -613,6 +613,7 @@ export default {
     handleViewChange(view) {
       this.currentView = view
       localStorage.setItem('currentView', view)
+      this.updateUrlParams()
     },
 
     parseUrlParams() {
@@ -651,6 +652,11 @@ export default {
 
     updateUrlParams() {
       const params = new URLSearchParams()
+
+      // Add view param
+      if (this.currentView && this.currentView !== 'release-tracking') {
+        params.set('view', this.currentView)
+      }
 
       // Add multi-select params
       if (this.filters.teams && this.filters.teams.length > 0) {
