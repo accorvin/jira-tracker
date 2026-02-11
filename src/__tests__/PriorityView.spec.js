@@ -107,33 +107,17 @@ describe('PriorityView', () => {
     expect(tableIssues.every(i => i.components.includes('UI'))).toBe(true)
   })
 
-  it('hides done issues when hideDone is true', async () => {
+  it('excludes done issues from loaded data', async () => {
     const wrapper = mount(PriorityView, {
       props: { isRefreshing: false }
     })
     await flushPromises()
 
-    const filterBar = wrapper.findComponent(PriorityFilterBar)
-    await filterBar.vm.$emit('filter-change', { mode: 'team', value: '', hideDone: true })
-
     const table = wrapper.findComponent(PriorityTable)
     const tableIssues = table.props('issues')
-    // Should exclude Resolved and Closed
+    // A-3 (Resolved) should be filtered out at load time
+    expect(tableIssues.length).toBe(3)
     expect(tableIssues.every(i => i.status !== 'Resolved' && i.status !== 'Closed')).toBe(true)
-  })
-
-  it('shows done issues when hideDone is false', async () => {
-    const wrapper = mount(PriorityView, {
-      props: { isRefreshing: false }
-    })
-    await flushPromises()
-
-    const filterBar = wrapper.findComponent(PriorityFilterBar)
-    await filterBar.vm.$emit('filter-change', { mode: 'team', value: '', hideDone: false })
-
-    const table = wrapper.findComponent(PriorityTable)
-    const tableIssues = table.props('issues')
-    expect(tableIssues.length).toBe(4) // All issues including Resolved
   })
 
   it('shows loading overlay while fetching data', async () => {

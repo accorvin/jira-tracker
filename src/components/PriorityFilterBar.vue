@@ -39,17 +39,6 @@
         </select>
       </div>
 
-      <!-- Hide Done Toggle -->
-      <label class="flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
-        <input
-          type="checkbox"
-          v-model="hideDone"
-          @change="emitFilterChange"
-          class="rounded border-gray-300 text-primary-500 focus:ring-primary-500"
-          data-testid="hide-done-checkbox"
-        />
-        <span class="text-sm text-gray-600">Hide Done</span>
-      </label>
     </div>
   </div>
 </template>
@@ -69,8 +58,7 @@ export default {
   data() {
     return {
       mode: 'team',
-      selectedValue: '',
-      hideDone: true
+      selectedValue: ''
     }
   },
   mounted() {
@@ -115,7 +103,6 @@ export default {
           const parsed = JSON.parse(saved)
           this.mode = parsed.mode || 'team'
           this.selectedValue = parsed.value || ''
-          this.hideDone = parsed.hideDone !== undefined ? parsed.hideDone : true
         }
       } catch (error) {
         console.error('Failed to load priority filter from localStorage:', error)
@@ -125,8 +112,7 @@ export default {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
           mode: this.mode,
-          value: this.selectedValue,
-          hideDone: this.hideDone
+          value: this.selectedValue
         }))
       } catch (error) {
         console.error('Failed to save priority filter to localStorage:', error)
@@ -136,8 +122,7 @@ export default {
       this.saveFilter()
       this.$emit('filter-change', {
         mode: this.mode,
-        value: this.selectedValue,
-        hideDone: this.hideDone
+        value: this.selectedValue
       })
     }
   }

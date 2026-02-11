@@ -9,8 +9,7 @@ describe('PriorityTable', () => {
   const mockIssues = [
     { key: 'RHOAIENG-001', summary: 'Feature A', team: 'Team X', status: 'In Progress', rank: 1, colorStatus: 'Green', targetRelease: ['rhoai-3.2'] },
     { key: 'RHOAIENG-002', summary: 'Feature B', team: 'Team Y', status: 'New', rank: 2, colorStatus: null, targetRelease: ['rhoai-3.2'] },
-    { key: 'RHOAIENG-003', summary: 'Feature C', team: 'Team Z', status: 'In Progress', rank: 101, colorStatus: 'Yellow', targetRelease: ['rhoai-3.2'] },
-    { key: 'RHOAIENG-004', summary: 'Feature D', team: 'Team X', status: 'Resolved', rank: 50, colorStatus: 'Green', targetRelease: ['rhoai-3.2'] }
+    { key: 'RHOAIENG-003', summary: 'Feature C', team: 'Team Z', status: 'In Progress', rank: 101, colorStatus: 'Yellow', targetRelease: ['rhoai-3.2'] }
   ]
 
   it('renders a table with correct columns', () => {
@@ -31,16 +30,27 @@ describe('PriorityTable', () => {
       props: { issues: mockIssues }
     })
     const rows = wrapper.findAll('tbody tr')
-    expect(rows.length).toBe(4)
+    expect(rows.length).toBe(3)
 
     // First row should be rank 1
     expect(rows[0].text()).toContain('RHOAIENG-001')
     // Second row should be rank 2
     expect(rows[1].text()).toContain('RHOAIENG-002')
-    // Third row should be rank 50
-    expect(rows[2].text()).toContain('RHOAIENG-004')
-    // Fourth row should be rank 101
-    expect(rows[3].text()).toContain('RHOAIENG-003')
+    // Third row should be rank 101
+    expect(rows[2].text()).toContain('RHOAIENG-003')
+  })
+
+  it('displays 1-based position in rank badges', () => {
+    const issues = [
+      { key: 'A-1', summary: 'First', team: 'T', status: 'New', rank: 15, colorStatus: null, targetRelease: [] },
+      { key: 'A-2', summary: 'Second', team: 'T', status: 'New', rank: 42, colorStatus: null, targetRelease: [] }
+    ]
+    const wrapper = mount(PriorityTable, {
+      props: { issues }
+    })
+    const rankBadges = wrapper.findAll('[data-testid="rank-badge"]')
+    expect(rankBadges[0].text()).toBe('1')
+    expect(rankBadges[1].text()).toBe('2')
   })
 
   it('displays rank badges with tier colors', () => {
@@ -48,16 +58,14 @@ describe('PriorityTable', () => {
       props: { issues: mockIssues }
     })
     const rankBadges = wrapper.findAll('[data-testid="rank-badge"]')
-    expect(rankBadges.length).toBe(4)
+    expect(rankBadges.length).toBe(3)
 
     // Rank 1 (top tier) - green
     expect(rankBadges[0].classes()).toContain('bg-green-500')
     // Rank 2 (top tier) - green
     expect(rankBadges[1].classes()).toContain('bg-green-500')
-    // Rank 50 (high tier) - blue
-    expect(rankBadges[2].classes()).toContain('bg-blue-500')
     // Rank 101 (low tier) - gray
-    expect(rankBadges[3].classes()).toContain('bg-gray-300')
+    expect(rankBadges[2].classes()).toContain('bg-gray-300')
   })
 
   it('highlights in-progress items ranked >100 with amber background', () => {
@@ -66,7 +74,7 @@ describe('PriorityTable', () => {
     })
     const rows = wrapper.findAll('tbody tr')
     // RHOAIENG-003 is rank 101, In Progress - should have amber highlight
-    const rank101Row = rows[3] // sorted last
+    const rank101Row = rows[2] // sorted last
     expect(rank101Row.classes()).toContain('bg-amber-50')
   })
 
@@ -81,23 +89,12 @@ describe('PriorityTable', () => {
     expect(rows[0].classes()).not.toContain('bg-amber-50')
   })
 
-  it('applies strikethrough to done issue summaries', () => {
-    const wrapper = mount(PriorityTable, {
-      props: { issues: mockIssues }
-    })
-    const rows = wrapper.findAll('tbody tr')
-    // RHOAIENG-004 is Resolved (rank 50, 3rd row when sorted)
-    const resolvedRow = rows[2]
-    const summary = resolvedRow.find('[data-testid="issue-summary"]')
-    expect(summary.classes()).toContain('line-through')
-  })
-
   it('renders issue keys as links to Jira', () => {
     const wrapper = mount(PriorityTable, {
       props: { issues: mockIssues }
     })
     const links = wrapper.findAll('a[data-testid="issue-link"]')
-    expect(links.length).toBe(4)
+    expect(links.length).toBe(3)
     expect(links[0].attributes('href')).toContain('RHOAIENG-001')
   })
 
@@ -109,7 +106,7 @@ describe('PriorityTable', () => {
     // Rank 1 (top) - green left border
     expect(rows[0].classes()).toContain('border-l-green-500')
     // Rank 101 (low) - gray left border
-    expect(rows[3].classes()).toContain('border-l-gray-300')
+    expect(rows[2].classes()).toContain('border-l-gray-300')
   })
 
   it('renders empty state when no issues', () => {

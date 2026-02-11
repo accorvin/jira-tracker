@@ -18,7 +18,7 @@
         </thead>
         <tbody>
           <tr
-            v-for="issue in sortedIssues"
+            v-for="(issue, index) in sortedIssues"
             :key="issue.key"
             class="border-t border-gray-100 border-l-4"
             :class="rowClasses(issue)"
@@ -29,7 +29,7 @@
                 class="inline-flex items-center justify-center w-8 h-6 rounded text-xs font-bold"
                 :class="rankBadgeClass(issue.rank)"
               >
-                {{ issue.rank }}
+                {{ index + 1 }}
               </span>
             </td>
             <td class="px-3 py-2">
@@ -46,7 +46,7 @@
             <td class="px-3 py-2">
               <span
                 data-testid="issue-summary"
-                :class="isDone(issue) ? 'line-through text-gray-400' : 'text-gray-900'"
+                class="text-gray-900"
               >
                 {{ issue.summary }}
               </span>
@@ -84,7 +84,6 @@
 import { getRankTier } from '../utils/priorityRules.js'
 
 const IN_PROGRESS_STATUSES = ['In Progress', 'Review', 'Testing']
-const DONE_STATUSES = ['Resolved', 'Closed']
 
 export default {
   name: 'PriorityTable',
@@ -101,9 +100,6 @@ export default {
     }
   },
   methods: {
-    isDone(issue) {
-      return DONE_STATUSES.includes(issue.status)
-    },
     rowClasses(issue) {
       const classes = []
       const tier = getRankTier(issue.rank)

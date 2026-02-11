@@ -10,7 +10,7 @@
       :lowPriorityInProgress="lowPriorityInProgress"
     />
 
-    <PriorityTable :issues="displayIssues" />
+    <PriorityTable :issues="filteredIssues" />
 
     <LoadingOverlay v-if="isLoading" data-testid="loading-overlay" />
   </main>
@@ -44,8 +44,7 @@ export default {
       isLoading: false,
       filter: {
         mode: 'team',
-        value: '',
-        hideDone: true
+        value: ''
       }
     }
   },
@@ -65,14 +64,6 @@ export default {
       }
 
       return issues
-    },
-    displayIssues() {
-      if (this.filter.hideDone) {
-        return this.filteredIssues.filter(issue =>
-          issue.status !== 'Resolved' && issue.status !== 'Closed'
-        )
-      }
-      return this.filteredIssues
     },
     violations() {
       return detectPriorityViolations(this.filteredIssues)
@@ -96,7 +87,8 @@ export default {
       this.isLoading = true
       try {
         const data = await getPlanRankings()
-        this.allIssues = data.issues || []
+        const DONE_STATUSES = ['Resolved', 'Closed']
+        this.allIssues = (data.issues || []).filter(i => !DONE_STATUSES.includes(i.status))
       } catch (error) {
         console.error('Failed to load plan rankings:', error)
         this.allIssues = []
