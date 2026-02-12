@@ -33,13 +33,13 @@ Click the **Refresh** button in the header to fetch fresh data from Jira.
 
 ### AWS CLI Commands
 
-**IMPORTANT:** Always prepend AWS and Amplify CLI commands with `AWS_PROFILE=ais`
+**IMPORTANT:** Always prepend AWS and Amplify CLI commands with `rh-aws-saml-login iaps-rhods-odh-dev --`
 
 Examples:
 ```bash
-AWS_PROFILE=ais aws ssm get-parameter --name /jira-tracker-app/dev/jira-token
-AWS_PROFILE=ais aws cloudformation describe-stacks
-AWS_PROFILE=ais amplify publish
+rh-aws-saml-login iaps-rhods-odh-dev -- aws ssm get-parameter --name /jira-tracker-app/dev/jira-token
+rh-aws-saml-login iaps-rhods-odh-dev -- aws cloudformation describe-stacks
+rh-aws-saml-login iaps-rhods-odh-dev -- amplify publish
 ```
 
 ## Project Structure

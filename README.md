@@ -15,7 +15,7 @@ cd jira-tracker
 npm install
 
 # 2. Pull AWS backend config (requires AWS credentials - see Full Setup below)
-AWS_PROFILE=ais amplify pull --appId db8qbfhkw24dz --envName dev
+rh-aws-saml-login iaps-rhods-odh-dev -- amplify pull --appId db8qbfhkw24dz --envName dev
 
 # 3. Start the dev server
 npm run dev
@@ -111,26 +111,15 @@ npm install -g @aws-amplify/cli
 
 ### Step 2: Configure AWS Credentials
 
-This project uses an AWS profile named `ais`. You need to configure this profile with your AWS credentials.
+This project uses `rh-aws-saml-login` for AWS authentication. All AWS and Amplify CLI commands must be prefixed with `rh-aws-saml-login iaps-rhods-odh-dev --`.
+
+Verify it works:
 
 ```bash
-# Configure the 'ais' profile
-aws configure --profile ais
+rh-aws-saml-login iaps-rhods-odh-dev -- aws sts get-caller-identity
 ```
 
-You'll be prompted for:
-- **AWS Access Key ID**: Get from your AWS administrator
-- **AWS Secret Access Key**: Get from your AWS administrator
-- **Default region name**: `us-east-1`
-- **Default output format**: `json`
-
-Verify the profile works:
-
-```bash
-AWS_PROFILE=ais aws sts get-caller-identity
-```
-
-> **IMPORTANT**: All AWS and Amplify commands in this project MUST be prefixed with `AWS_PROFILE=ais`
+> **IMPORTANT**: All AWS and Amplify commands in this project MUST be prefixed with `rh-aws-saml-login iaps-rhods-odh-dev --`
 
 ### Step 3: Clone and Install
 
@@ -148,7 +137,7 @@ npm install
 This downloads the AWS backend configuration to your local machine:
 
 ```bash
-AWS_PROFILE=ais amplify pull --appId db8qbfhkw24dz --envName dev
+rh-aws-saml-login iaps-rhods-odh-dev -- amplify pull --appId db8qbfhkw24dz --envName dev
 ```
 
 When prompted:
@@ -171,7 +160,7 @@ The Lambda functions store Jira data in a shared S3 bucket (`acorvin-jira-tracke
 The Lambda function needs a Jira API token to fetch issues. Check if one already exists:
 
 ```bash
-AWS_PROFILE=ais aws ssm get-parameter \
+rh-aws-saml-login iaps-rhods-odh-dev -- aws ssm get-parameter \
   --name "/jira-tracker-app/dev/jira-token" \
   --with-decryption \
   --region us-east-1
@@ -185,7 +174,7 @@ If it doesn't exist (or you need your own), create one:
 4. Store it in AWS SSM:
 
 ```bash
-AWS_PROFILE=ais aws ssm put-parameter \
+rh-aws-saml-login iaps-rhods-odh-dev -- aws ssm put-parameter \
   --name "/jira-tracker-app/dev/jira-token" \
   --description "Jira API token for jira-tracker-app dev environment" \
   --value "YOUR_JIRA_TOKEN" \
@@ -218,14 +207,14 @@ When running locally (`npm run dev`), the frontend connects to the **production 
 
 This is intentional - the backend is serverless and doesn't need local hosting.
 
-### AWS Profile Requirement
+### AWS Authentication Requirement
 
-**ALWAYS** prefix AWS and Amplify commands with `AWS_PROFILE=ais`:
+**ALWAYS** prefix AWS and Amplify commands with `rh-aws-saml-login iaps-rhods-odh-dev --`:
 
 ```bash
 # Correct
-AWS_PROFILE=ais amplify push
-AWS_PROFILE=ais aws s3 ls
+rh-aws-saml-login iaps-rhods-odh-dev -- amplify push
+rh-aws-saml-login iaps-rhods-odh-dev -- aws s3 ls
 
 # Incorrect - will use wrong AWS account
 amplify push
@@ -261,7 +250,7 @@ npm run preview
 ### Deploying to AWS Amplify Hosting
 
 ```bash
-AWS_PROFILE=ais amplify publish
+rh-aws-saml-login iaps-rhods-odh-dev -- amplify publish
 ```
 
 ---
@@ -353,18 +342,11 @@ All endpoints require `Authorization: Bearer <firebase-id-token>` header.
 npm install -g @aws-amplify/cli
 ```
 
-### "Profile ais not found"
-
-Configure the AWS profile:
-```bash
-aws configure --profile ais
-```
-
 ### "amplify pull" fails with authentication error
 
 Ensure your AWS credentials are valid:
 ```bash
-AWS_PROFILE=ais aws sts get-caller-identity
+rh-aws-saml-login iaps-rhods-odh-dev -- aws sts get-caller-identity
 ```
 
 ### Authentication Issues

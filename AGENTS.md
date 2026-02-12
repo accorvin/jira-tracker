@@ -60,12 +60,12 @@ npm run test:watch  # Watch mode
 
 ## AWS Commands
 
-**CRITICAL: Always use the `ais` AWS profile**
+**CRITICAL: Always prefix AWS/Amplify commands with `rh-aws-saml-login iaps-rhods-odh-dev --`**
 
 ```bash
 # Correct
-AWS_PROFILE=ais amplify push
-AWS_PROFILE=ais aws s3 ls
+rh-aws-saml-login iaps-rhods-odh-dev -- amplify push
+rh-aws-saml-login iaps-rhods-odh-dev -- aws s3 ls
 
 # Incorrect - will fail or use wrong account
 amplify push
@@ -123,7 +123,7 @@ Use Conventional Commits format:
 
 1. Edit code in `amplify/backend/function/<name>/src/`
 2. Test locally if possible
-3. Deploy with `AWS_PROFILE=ais amplify push`
+3. Deploy with `rh-aws-saml-login iaps-rhods-odh-dev -- amplify push`
 4. Check CloudWatch logs for errors
 
 ### Adding New API Endpoints
@@ -131,14 +131,14 @@ Use Conventional Commits format:
 1. Update Lambda function to handle new route
 2. Update `src/services/api.js` with new function
 3. Add tests for new functionality
-4. Deploy with `AWS_PROFILE=ais amplify push`
+4. Deploy with `rh-aws-saml-login iaps-rhods-odh-dev -- amplify push`
 
 ## Things to Avoid
 
 - **Don't** commit sensitive data (tokens, keys, credentials)
 - **Don't** modify `amplify/team-provider-info.json` unless intentional
 - **Don't** skip tests - TDD is mandatory
-- **Don't** forget the `AWS_PROFILE=ais` prefix for AWS commands
+- **Don't** forget the `rh-aws-saml-login iaps-rhods-odh-dev --` prefix for AWS commands
 - **Don't** add unnecessary dependencies without justification
 
 ## Jira Field Mappings
