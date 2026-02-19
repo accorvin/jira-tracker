@@ -7,9 +7,9 @@ import PriorityTable from '../components/PriorityTable.vue'
 
 describe('PriorityTable', () => {
   const mockIssues = [
-    { key: 'RHOAIENG-001', summary: 'Feature A', team: 'Team X', status: 'In Progress', rank: 1, displayRank: 1, colorStatus: 'Green', targetRelease: ['rhoai-3.2'], components: ['UI', 'Backend'] },
-    { key: 'RHOAIENG-002', summary: 'Feature B', team: 'Team Y', status: 'New', rank: 2, displayRank: 2, colorStatus: null, targetRelease: ['rhoai-3.2'], components: [] },
-    { key: 'RHOAIENG-003', summary: 'Feature C', team: 'Team Z', status: 'In Progress', rank: 101, displayRank: 3, colorStatus: 'Yellow', targetRelease: ['rhoai-3.2'], components: ['API'] }
+    { key: 'RHOAIENG-001', summary: 'Feature A', team: 'Team X', status: 'In Progress', rank: 1, displayRank: 1, colorStatus: 'Green', targetRelease: ['rhoai-3.2'], components: ['UI', 'Backend'], labels: ['3.4-committed', 'important'] },
+    { key: 'RHOAIENG-002', summary: 'Feature B', team: 'Team Y', status: 'New', rank: 2, displayRank: 2, colorStatus: null, targetRelease: ['rhoai-3.2'], components: [], labels: [] },
+    { key: 'RHOAIENG-003', summary: 'Feature C', team: 'Team Z', status: 'In Progress', rank: 101, displayRank: 3, colorStatus: 'Yellow', targetRelease: ['rhoai-3.2'], components: ['API'], labels: ['3.4-committed'] }
   ]
 
   it('renders a table with correct columns', () => {
@@ -23,6 +23,7 @@ describe('PriorityTable', () => {
     expect(headerTexts).toContain('Summary')
     expect(headerTexts).toContain('Team')
     expect(headerTexts).toContain('Components')
+    expect(headerTexts).toContain('Labels')
     expect(headerTexts).toContain('Status')
   })
 
@@ -48,6 +49,30 @@ describe('PriorityTable', () => {
     const row3Pills = rows[2].findAll('[data-testid="component-pill"]')
     expect(row3Pills.length).toBe(1)
     expect(row3Pills[0].text()).toBe('API')
+  })
+
+  it('renders labels as individual pills', () => {
+    const wrapper = mount(PriorityTable, {
+      props: { issues: mockIssues }
+    })
+    const rows = wrapper.findAll('tbody tr')
+
+    // First issue has ['3.4-committed', 'important'] — two pills
+    const row1Pills = rows[0].findAll('[data-testid="label-pill"]')
+    expect(row1Pills.length).toBe(2)
+    expect(row1Pills[0].text()).toBe('3.4-committed')
+    expect(row1Pills[1].text()).toBe('important')
+    expect(row1Pills[0].classes()).toContain('rounded-full')
+
+    // Second issue has empty labels — dash, no pills
+    const row2Pills = rows[1].findAll('[data-testid="label-pill"]')
+    expect(row2Pills.length).toBe(0)
+    expect(rows[1].find('[data-testid="labels-cell"]').text()).toContain('—')
+
+    // Third issue has ['3.4-committed'] — one pill
+    const row3Pills = rows[2].findAll('[data-testid="label-pill"]')
+    expect(row3Pills.length).toBe(1)
+    expect(row3Pills[0].text()).toBe('3.4-committed')
   })
 
   it('renders rows sorted by rank ascending', () => {

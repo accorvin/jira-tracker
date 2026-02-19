@@ -12,6 +12,7 @@
             <th class="px-3 py-2 text-left font-semibold text-gray-600">Summary</th>
             <th class="px-3 py-2 text-left font-semibold text-gray-600 w-40">Team</th>
             <th class="px-3 py-2 text-left font-semibold text-gray-600 w-40">Components</th>
+            <th class="px-3 py-2 text-left font-semibold text-gray-600 w-40">Labels</th>
             <th class="px-3 py-2 text-left font-semibold text-gray-600 w-28">Status</th>
             <th class="px-3 py-2 text-left font-semibold text-gray-600 w-20">Color</th>
             <th class="px-3 py-2 text-left font-semibold text-gray-600 w-32">Target Release</th>
@@ -62,6 +63,19 @@
                   class="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 whitespace-nowrap"
                 >
                   {{ comp }}
+                </span>
+              </div>
+              <span v-else class="text-gray-400">—</span>
+            </td>
+            <td class="px-3 py-2" data-testid="labels-cell">
+              <div v-if="issue.labels && issue.labels.length" class="flex flex-wrap gap-1">
+                <span
+                  v-for="label in issue.labels"
+                  :key="label"
+                  data-testid="label-pill"
+                  class="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 whitespace-nowrap"
+                >
+                  {{ label }}
                 </span>
               </div>
               <span v-else class="text-gray-400">—</span>

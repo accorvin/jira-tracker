@@ -31,13 +31,16 @@ export function useSavedFilters(storageKey = 'savedFilters') {
     localStorage.setItem(storageKey, JSON.stringify(filters.value))
   }
 
-  function createFilter({ name, teams, components }) {
+  function createFilter({ name, teams, components, targetReleases, labels, matchMode }) {
     const id = Date.now().toString(36)
     filters.value.push({
       id,
       name,
-      teams: [...teams].sort(),
-      components: [...components].sort()
+      teams: [...(teams || [])].sort(),
+      components: [...(components || [])].sort(),
+      targetReleases: [...(targetReleases || [])].sort(),
+      labels: [...(labels || [])],
+      matchMode: matchMode || 'any'
     })
     persistFilters()
     return id

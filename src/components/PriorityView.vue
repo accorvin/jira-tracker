@@ -1,13 +1,14 @@
 <template>
   <main class="flex-1 px-4 py-4 relative">
-    <div class="bg-white rounded-lg shadow-sm p-2 mb-2">
-      <PriorityFilterSelector
-        :filters="filters"
-        :activeFilterId="activeFilterId"
-        @select-filter="setActiveFilter"
-        @create-filter="openNewFilter"
-        @edit-filter="openEditFilter"
-        @delete-filter="deleteFilter"
+    <div v-if="allIssues.length > 0" class="bg-white rounded-lg shadow-sm p-2 mb-2">
+      <PriorityFilterBar
+        :issues="allIssues"
+        :filteredCount="filteredIssues.length"
+        :presets="filters"
+        :initialFilterState="initialFilterState"
+        @filter-change="handleFilterChange"
+        @save-preset="handleSavePreset"
+        @delete-preset="deleteFilter"
       />
     </div>
 
@@ -18,33 +19,25 @@
 
     <PriorityTable :issues="filteredIssues" />
 
-    <PriorityFilterEditor
-      v-if="showFilterEditor"
-      :issues="allIssues"
-      :filter="editingFilter"
-      @save="handleSaveFilter"
-      @cancel="showFilterEditor = false"
-    />
-
     <LoadingOverlay v-if="isLoading" data-testid="loading-overlay" />
   </main>
 </template>
 
 <script>
-import PriorityFilterSelector from './PriorityFilterSelector.vue'
-import PriorityFilterEditor from './PriorityFilterEditor.vue'
+import PriorityFilterBar from './PriorityFilterBar.vue'
 import PriorityAlerts from './PriorityAlerts.vue'
 import PriorityTable from './PriorityTable.vue'
 import LoadingOverlay from './LoadingOverlay.vue'
 import { getPlanRankings } from '../services/api'
 import { detectPriorityViolations, getLowPriorityInProgress } from '../utils/priorityRules.js'
+import { filterIssues } from '../utils/priorityFilterLogic.js'
+import { parsePriorityUrlParams, buildPriorityUrlParams } from '../utils/priorityUrlSync.js'
 import { useSavedFilters } from '../composables/useSavedFilters.js'
 
 export default {
   name: 'PriorityView',
   components: {
-    PriorityFilterSelector,
-    PriorityFilterEditor,
+    PriorityFilterBar,
     PriorityAlerts,
     PriorityTable,
     LoadingOverlay
@@ -58,51 +51,28 @@ export default {
   setup() {
     const {
       filters,
-      activeFilterId,
-      activeFilter,
       createFilter,
-      updateFilter,
-      deleteFilter,
-      setActiveFilter
+      deleteFilter
     } = useSavedFilters('priorityFilters')
 
     return {
       filters,
-      activeFilterId,
-      activeFilter,
       createFilter,
-      updateFilter,
-      deleteFilter,
-      setActiveFilter
+      deleteFilter
     }
   },
   data() {
     return {
       allIssues: [],
       isLoading: false,
-      showFilterEditor: false,
-      editingFilter: null
+      activeFilterState: null,
+      initialFilterState: parsePriorityUrlParams(window.location.search)
     }
   },
   computed: {
     filteredIssues() {
-      if (!this.activeFilter) return this.allIssues
-
-      const matchMode = this.activeFilter.matchMode || 'any'
-
-      return this.allIssues.filter(issue => {
-        const matchesTeam = this.activeFilter.teams.length > 0 && this.activeFilter.teams.includes(issue.team)
-        const matchesComponent = this.activeFilter.components.length > 0 &&
-          (issue.components || []).some(c => this.activeFilter.components.includes(c))
-
-        if (matchMode === 'all') {
-          const teamCheck = this.activeFilter.teams.length === 0 || matchesTeam
-          const componentCheck = this.activeFilter.components.length === 0 || matchesComponent
-          return teamCheck && componentCheck
-        }
-
-        return matchesTeam || matchesComponent
-      })
+      if (!this.activeFilterState) return this.allIssues
+      return filterIssues(this.allIssues, this.activeFilterState)
     },
     violations() {
       return detectPriorityViolations(this.filteredIssues)
@@ -137,22 +107,14 @@ export default {
         this.isLoading = false
       }
     },
-    openNewFilter() {
-      this.editingFilter = null
-      this.showFilterEditor = true
+    handleFilterChange(filterState) {
+      this.activeFilterState = filterState
+      const newSearch = buildPriorityUrlParams(filterState, window.location.search)
+      const newUrl = window.location.pathname + (newSearch || '')
+      window.history.replaceState(null, '', newUrl || window.location.pathname)
     },
-    openEditFilter(id) {
-      this.editingFilter = this.filters.find(f => f.id === id) || null
-      this.showFilterEditor = true
-    },
-    handleSaveFilter(payload) {
-      if (this.editingFilter) {
-        this.updateFilter(this.editingFilter.id, payload)
-      } else {
-        const id = this.createFilter(payload)
-        this.setActiveFilter(id)
-      }
-      this.showFilterEditor = false
+    handleSavePreset(payload) {
+      this.createFilter(payload)
     }
   }
 }

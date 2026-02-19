@@ -98,8 +98,44 @@ describe('useSavedFilters', () => {
         id,
         name: 'My Teams',
         teams: ['Team A', 'Team B'],
-        components: ['API']
+        components: ['API'],
+        targetReleases: [],
+        labels: [],
+        matchMode: 'any'
       })
+    })
+
+    it('creates a filter with targetReleases, labels, and matchMode', () => {
+      const { filters, createFilter } = useSavedFilters('priorityFilters')
+
+      const id = createFilter({
+        name: 'Full Filter',
+        teams: ['Team A'],
+        components: ['UI'],
+        targetReleases: ['rhoai-3.4', 'rhoai-3.3'],
+        labels: ['3.4-committed'],
+        matchMode: 'all'
+      })
+
+      expect(filters.value[0]).toEqual({
+        id,
+        name: 'Full Filter',
+        teams: ['Team A'],
+        components: ['UI'],
+        targetReleases: ['rhoai-3.3', 'rhoai-3.4'],
+        labels: ['3.4-committed'],
+        matchMode: 'all'
+      })
+    })
+
+    it('defaults missing new fields when creating a filter', () => {
+      const { filters, createFilter } = useSavedFilters('priorityFilters')
+
+      createFilter({ name: 'Legacy', teams: ['Team A'], components: [] })
+
+      expect(filters.value[0].targetReleases).toEqual([])
+      expect(filters.value[0].labels).toEqual([])
+      expect(filters.value[0].matchMode).toBe('any')
     })
 
     it('sorts teams and components alphabetically', () => {
@@ -109,6 +145,14 @@ describe('useSavedFilters', () => {
 
       expect(filters.value[0].teams).toEqual(['Alpha', 'Middle', 'Zebra'])
       expect(filters.value[0].components).toEqual(['API', 'Backend', 'UI'])
+    })
+
+    it('sorts targetReleases alphabetically', () => {
+      const { filters, createFilter } = useSavedFilters('priorityFilters')
+
+      createFilter({ name: 'Test', teams: [], components: [], targetReleases: ['rhoai-3.4', 'rhoai-3.2', 'rhoai-3.3'] })
+
+      expect(filters.value[0].targetReleases).toEqual(['rhoai-3.2', 'rhoai-3.3', 'rhoai-3.4'])
     })
 
     it('persists filters to localStorage after create', () => {

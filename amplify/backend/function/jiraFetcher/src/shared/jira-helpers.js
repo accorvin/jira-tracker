@@ -233,6 +233,9 @@ function transformIssue(issue, rfeMap = {}) {
     ? fields.components.map(c => c.name).filter(Boolean)
     : [];
 
+  // Extract labels as an array of strings
+  const labels = Array.isArray(fields.labels) ? fields.labels : [];
+
   // Get clones links for RFE checking
   // Only consider issues from RHAIRFE project as actual RFEs
   const clonesLinks = getClonesLinks(issue);
@@ -260,6 +263,7 @@ function transformIssue(issue, rfeMap = {}) {
     status: fields.status?.name || null,
     team: serializeField(fields[CUSTOM_FIELDS.team]),
     components: components,
+    labels: labels,
     releaseType: serializeField(fields[CUSTOM_FIELDS.releaseType]),
     targetRelease: serializeListField(fields[CUSTOM_FIELDS.targetRelease]),
     statusSummary: statusSummary,
@@ -321,7 +325,7 @@ function transformIntakeFeature(issue, rfeMap) {
  */
 function buildIssueFields() {
   return [
-    'key', 'summary', 'issuetype', 'assignee', 'status', 'created', 'issuelinks', 'components',
+    'key', 'summary', 'issuetype', 'assignee', 'status', 'created', 'issuelinks', 'components', 'labels',
     CUSTOM_FIELDS.team,
     CUSTOM_FIELDS.releaseType,
     CUSTOM_FIELDS.targetRelease,
