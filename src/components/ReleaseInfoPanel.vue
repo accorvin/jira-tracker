@@ -61,14 +61,28 @@
         <button
           data-testid="edit-btn"
           @click="$emit('edit')"
-          class="px-3 py-1 text-sm text-primary-700 hover:bg-primary-50 rounded border border-primary-300 transition-colors"
+          :disabled="!isAdmin"
+          :title="!isAdmin ? 'Admin access required' : undefined"
+          :class="[
+            'px-3 py-1 text-sm rounded border transition-colors',
+            isAdmin
+              ? 'text-primary-700 hover:bg-primary-50 border-primary-300'
+              : 'text-gray-400 border-gray-300 opacity-50 cursor-not-allowed'
+          ]"
         >
           Edit
         </button>
         <button
           data-testid="delete-btn"
           @click="$emit('delete')"
-          class="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded border border-red-300 transition-colors"
+          :disabled="!isAdmin"
+          :title="!isAdmin ? 'Admin access required' : undefined"
+          :class="[
+            'px-3 py-1 text-sm rounded border transition-colors',
+            isAdmin
+              ? 'text-red-600 hover:bg-red-50 border-red-300'
+              : 'text-gray-400 border-gray-300 opacity-50 cursor-not-allowed'
+          ]"
         >
           Delete
         </button>
@@ -78,10 +92,16 @@
 </template>
 
 <script>
+import { useAdmin } from '../composables/useAdmin'
+
 const STORAGE_KEY = 'release-panel-collapsed'
 
 export default {
   name: 'ReleaseInfoPanel',
+  setup() {
+    const { isAdmin } = useAdmin()
+    return { isAdmin }
+  },
   props: {
     release: {
       type: Object,

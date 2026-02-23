@@ -42,6 +42,13 @@
       "permissions": {
         "setting": "open"
       }
+    },
+    "/admins": {
+      "name": "/admins",
+      "lambdaFunction": "issuesReader",
+      "permissions": {
+        "setting": "open"
+      }
     }
   }
 }

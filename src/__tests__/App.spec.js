@@ -28,6 +28,18 @@ vi.mock('../composables/useAuth', () => ({
   })
 }))
 
+// Mock useAdmin composable
+vi.mock('../composables/useAdmin', () => ({
+  useAdmin: () => ({
+    isAdmin: ref(true),
+    adminList: ref([]),
+    adminLoading: ref(false),
+    adminError: ref(null),
+    fetchAdminStatus: vi.fn(),
+    resetAdmin: vi.fn()
+  })
+}))
+
 // Mock fetch
 global.fetch = vi.fn()
 

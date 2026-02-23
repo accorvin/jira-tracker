@@ -2,9 +2,18 @@
  * Tests for ReleaseTabBar.vue component - following TDD practices.
  * Tests written BEFORE implementation.
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { ref } from 'vue'
 import ReleaseTabBar from '../components/ReleaseTabBar.vue'
+
+// Mock useAdmin composable with real ref
+const mockIsAdmin = ref(true)
+vi.mock('../composables/useAdmin', () => ({
+  useAdmin: () => ({
+    isAdmin: mockIsAdmin
+  })
+}))
 
 describe('ReleaseTabBar', () => {
   const mockReleases = [
@@ -204,5 +213,35 @@ describe('ReleaseTabBar', () => {
     expect(tabTexts[1]).toBe('rhoai-3.4.EA1')
     expect(tabTexts[2]).toBe('rhoai-3.4.RC1')
     expect(tabTexts[3]).toBe('rhoai-3.4')
+  })
+
+  describe('admin access', () => {
+    it('disables Add button when user is not admin', () => {
+      mockIsAdmin.value = false
+      const wrapper = mount(ReleaseTabBar, {
+        props: {
+          releases: mockReleases,
+          selectedRelease: 'rhoai-3.1'
+        }
+      })
+
+      const addButton = wrapper.find('[data-testid="add-release-btn"]')
+      expect(addButton.attributes('disabled')).toBeDefined()
+      expect(addButton.attributes('title')).toBe('Admin access required')
+      mockIsAdmin.value = true
+    })
+
+    it('enables Add button when user is admin', () => {
+      mockIsAdmin.value = true
+      const wrapper = mount(ReleaseTabBar, {
+        props: {
+          releases: mockReleases,
+          selectedRelease: 'rhoai-3.1'
+        }
+      })
+
+      const addButton = wrapper.find('[data-testid="add-release-btn"]')
+      expect(addButton.attributes('disabled')).toBeUndefined()
+    })
   })
 })

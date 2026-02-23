@@ -10,6 +10,7 @@ const awsServerlessExpressMiddleware = require('aws-serverless-express/middlewar
 const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { LambdaClient, InvokeCommand } = require('@aws-sdk/client-lambda');
 const { verifyFirebaseToken } = require('./verifyToken');
+const { checkAdmin } = require('./requireAdmin');
 
 const app = express();
 app.use(bodyParser.json());
@@ -212,6 +213,12 @@ app.post('/releases', async function(req, res) {
       });
     }
 
+    // Admin check
+    const adminResult = await checkAdmin(verification, readFromS3);
+    if (!adminResult.isAdmin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
     const { releases } = req.body;
 
     if (!releases || !Array.isArray(releases)) {
@@ -394,6 +401,12 @@ app.post('/hygiene/config', async function(req, res) {
       return res.status(401).json({ error: verification.error });
     }
 
+    // Admin check
+    const adminResult2 = await checkAdmin(verification, readFromS3);
+    if (!adminResult2.isAdmin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
     const { rules } = req.body;
     if (!rules || typeof rules !== 'object') {
       return res.status(400).json({ error: 'Request must include "rules" object' });
@@ -496,6 +509,12 @@ app.post('/hygiene/run', async function(req, res) {
       return res.status(401).json({ error: verification.error });
     }
 
+    // Admin check
+    const adminResult3 = await checkAdmin(verification, readFromS3);
+    if (!adminResult3.isAdmin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
     console.log(`Manual enforcement run requested (user: ${verification.email})`);
 
     // Invoke hygieneEnforcer Lambda synchronously
@@ -531,6 +550,12 @@ app.post('/hygiene/approve', async function(req, res) {
     const verification = await verifyFirebaseToken(authHeader);
     if (!verification.valid) {
       return res.status(401).json({ error: verification.error });
+    }
+
+    // Admin check
+    const adminResult4 = await checkAdmin(verification, readFromS3);
+    if (!adminResult4.isAdmin) {
+      return res.status(403).json({ error: 'Admin access required' });
     }
 
     const { proposalIds } = req.body;
@@ -575,6 +600,12 @@ app.post('/hygiene/dismiss', async function(req, res) {
       return res.status(401).json({ error: verification.error });
     }
 
+    // Admin check
+    const adminResult5 = await checkAdmin(verification, readFromS3);
+    if (!adminResult5.isAdmin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
     const { proposalIds } = req.body;
     if (!proposalIds || !Array.isArray(proposalIds) || proposalIds.length === 0) {
       return res.status(400).json({ error: 'Request must include "proposalIds" array' });
@@ -607,6 +638,100 @@ app.post('/hygiene/dismiss', async function(req, res) {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Admin management endpoints
+// ---------------------------------------------------------------------------
+
+/**
+ * GET /admins - Check admin status and optionally return admin list
+ */
+app.get('/admins', async function(req, res) {
+  try {
+    const authHeader = req.headers.authorization;
+    const verification = await verifyFirebaseToken(authHeader);
+    if (!verification.valid) {
+      return res.status(401).json({ error: verification.error });
+    }
+
+    const adminResult = await checkAdmin(verification, readFromS3);
+
+    // If not admin, just return status (no list)
+    if (!adminResult.isAdmin) {
+      return res.json({ isAdmin: false });
+    }
+
+    // Admin: also return the admin list
+    // In dev mode, there may be no admins.json — return empty list
+    let admins = adminResult.admins || [];
+    if (admins.length === 0 && process.env.ENV !== 'dev') {
+      // Auto-seed with default admin
+      const seedData = {
+        admins: ['acorvin@redhat.com'],
+        updatedAt: new Date().toISOString(),
+        updatedBy: 'system'
+      };
+      await writeToS3('admins.json', seedData);
+      admins = seedData.admins;
+    }
+
+    res.json({ isAdmin: true, admins });
+  } catch (error) {
+    console.error('Get admin status error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /admins - Save admin list (admin-only)
+ */
+app.post('/admins', async function(req, res) {
+  try {
+    const authHeader = req.headers.authorization;
+    const verification = await verifyFirebaseToken(authHeader);
+    if (!verification.valid) {
+      return res.status(401).json({ error: verification.error });
+    }
+
+    const adminResult = await checkAdmin(verification, readFromS3);
+    if (!adminResult.isAdmin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { admins } = req.body;
+    if (!admins || !Array.isArray(admins)) {
+      return res.status(400).json({ error: 'Request must include "admins" array' });
+    }
+
+    // Validate all emails are @redhat.com
+    const invalidEmails = admins.filter(email => !email.endsWith('@redhat.com'));
+    if (invalidEmails.length > 0) {
+      return res.status(400).json({
+        error: `Invalid email domain. Only @redhat.com addresses allowed: ${invalidEmails.join(', ')}`
+      });
+    }
+
+    // Prevent self-removal
+    if (!admins.includes(verification.email)) {
+      return res.status(400).json({ error: 'You cannot remove yourself from the admin list' });
+    }
+
+    console.log(`Saving admin list (${admins.length} admins) by ${verification.email}`);
+
+    const data = {
+      admins,
+      updatedAt: new Date().toISOString(),
+      updatedBy: verification.email
+    };
+
+    await writeToS3('admins.json', data);
+
+    res.json({ success: true, ...data });
+  } catch (error) {
+    console.error('Save admin list error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Handle OPTIONS for CORS preflight
 app.options('/refresh', function(req, res) {
   res.status(200).end();
@@ -633,6 +758,10 @@ app.options('/plan-rankings', function(req, res) {
 });
 
 app.options('/hygiene/*', function(req, res) {
+  res.status(200).end();
+});
+
+app.options('/admins', function(req, res) {
   res.status(200).end();
 });
 

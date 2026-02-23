@@ -172,6 +172,9 @@ export async function saveReleases(releases) {
       if (response.status === 401) {
         throw new Error('Authentication failed. Please sign in again.');
       }
+      if (response.status === 403) {
+        throw new Error('Admin access required');
+      }
 
       throw new Error(errorData.error || `HTTP ${response.status}`);
     }
@@ -299,6 +302,68 @@ export async function getIntakeFeatures() {
 }
 
 // ---------------------------------------------------------------------------
+// Admin API
+// ---------------------------------------------------------------------------
+
+/**
+ * Get admin status for current user
+ * @returns {Promise<{isAdmin: boolean, admins?: Array<string>}>}
+ */
+export async function getAdminStatus() {
+  try {
+    const token = await getAuthToken();
+
+    const response = await fetch(`${API_ENDPOINT}/admins`, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 401) throw new Error('Authentication failed. Please sign in again.');
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Get admin status error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Save admin list (admin-only)
+ * @param {Array<string>} admins - Array of admin email addresses
+ * @returns {Promise<{success: boolean, admins: Array<string>}>}
+ */
+export async function saveAdminList(admins) {
+  try {
+    const token = await getAuthToken();
+
+    const response = await fetch(`${API_ENDPOINT}/admins`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ admins })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 401) throw new Error('Authentication failed. Please sign in again.');
+      if (response.status === 403) throw new Error('Admin access required');
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Save admin list error:', error);
+    throw error;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Hygiene Enforcement API
 // ---------------------------------------------------------------------------
 
@@ -349,6 +414,7 @@ export async function saveHygieneConfig(rules) {
     if (!response.ok) {
       const errorData = await response.json();
       if (response.status === 401) throw new Error('Authentication failed. Please sign in again.');
+      if (response.status === 403) throw new Error('Admin access required');
       throw new Error(errorData.error || `HTTP ${response.status}`);
     }
 
@@ -432,6 +498,7 @@ export async function approveProposals(proposalIds) {
     if (!response.ok) {
       const errorData = await response.json();
       if (response.status === 401) throw new Error('Authentication failed. Please sign in again.');
+      if (response.status === 403) throw new Error('Admin access required');
       throw new Error(errorData.error || `HTTP ${response.status}`);
     }
 
@@ -461,6 +528,7 @@ export async function runHygieneEnforcement() {
     if (!response.ok) {
       const errorData = await response.json();
       if (response.status === 401) throw new Error('Authentication failed. Please sign in again.');
+      if (response.status === 403) throw new Error('Admin access required');
       throw new Error(errorData.error || `HTTP ${response.status}`);
     }
 
@@ -492,6 +560,7 @@ export async function dismissProposals(proposalIds) {
     if (!response.ok) {
       const errorData = await response.json();
       if (response.status === 401) throw new Error('Authentication failed. Please sign in again.');
+      if (response.status === 403) throw new Error('Admin access required');
       throw new Error(errorData.error || `HTTP ${response.status}`);
     }
 

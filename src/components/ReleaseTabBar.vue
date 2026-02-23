@@ -17,7 +17,14 @@
     <button
       data-testid="add-release-btn"
       @click="$emit('add')"
-      class="px-3 py-1 text-sm rounded-md font-medium text-primary-700 hover:bg-primary-50 border border-dashed border-primary-300 transition-colors"
+      :disabled="!isAdmin"
+      :title="!isAdmin ? 'Admin access required' : undefined"
+      :class="[
+        'px-3 py-1 text-sm rounded-md font-medium border border-dashed transition-colors',
+        isAdmin
+          ? 'text-primary-700 hover:bg-primary-50 border-primary-300'
+          : 'text-gray-400 border-gray-300 opacity-50 cursor-not-allowed'
+      ]"
     >
       + Add
     </button>
@@ -25,8 +32,14 @@
 </template>
 
 <script>
+import { useAdmin } from '../composables/useAdmin'
+
 export default {
   name: 'ReleaseTabBar',
+  setup() {
+    const { isAdmin } = useAdmin()
+    return { isAdmin }
+  },
   props: {
     releases: {
       type: Array,

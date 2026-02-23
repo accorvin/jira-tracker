@@ -2,9 +2,18 @@
  * Tests for ReleaseInfoPanel.vue component - following TDD practices.
  * Tests written BEFORE implementation.
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { ref } from 'vue'
 import ReleaseInfoPanel from '../components/ReleaseInfoPanel.vue'
+
+// Mock useAdmin composable with real ref
+const mockIsAdmin = ref(true)
+vi.mock('../composables/useAdmin', () => ({
+  useAdmin: () => ({
+    isAdmin: mockIsAdmin
+  })
+}))
 
 describe('ReleaseInfoPanel', () => {
   const mockRelease = {
@@ -138,5 +147,36 @@ describe('ReleaseInfoPanel', () => {
 
     const releaseDate = wrapper.find('[data-testid="release-date"]')
     expect(releaseDate.text()).toBe('Not set')
+  })
+
+  describe('admin access', () => {
+    it('disables Edit and Delete buttons when user is not admin', () => {
+      mockIsAdmin.value = false
+      const wrapper = mount(ReleaseInfoPanel, {
+        props: { release: mockRelease }
+      })
+
+      const editBtn = wrapper.find('[data-testid="edit-btn"]')
+      const deleteBtn = wrapper.find('[data-testid="delete-btn"]')
+
+      expect(editBtn.attributes('disabled')).toBeDefined()
+      expect(editBtn.attributes('title')).toBe('Admin access required')
+      expect(deleteBtn.attributes('disabled')).toBeDefined()
+      expect(deleteBtn.attributes('title')).toBe('Admin access required')
+      mockIsAdmin.value = true
+    })
+
+    it('enables Edit and Delete buttons when user is admin', () => {
+      mockIsAdmin.value = true
+      const wrapper = mount(ReleaseInfoPanel, {
+        props: { release: mockRelease }
+      })
+
+      const editBtn = wrapper.find('[data-testid="edit-btn"]')
+      const deleteBtn = wrapper.find('[data-testid="delete-btn"]')
+
+      expect(editBtn.attributes('disabled')).toBeUndefined()
+      expect(deleteBtn.attributes('disabled')).toBeUndefined()
+    })
   })
 })

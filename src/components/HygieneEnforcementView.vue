@@ -11,7 +11,8 @@
         </div>
         <button
           @click="runEnforcement"
-          :disabled="runInProgress"
+          :disabled="runInProgress || !isAdmin"
+          :title="!isAdmin ? 'Admin access required' : undefined"
           class="px-4 py-2 text-sm font-medium bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
           <svg v-if="runInProgress" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -65,7 +66,8 @@
                 @click="toggleRule(rule.id)"
                 class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
                 :class="isRuleEnabled(rule.id) ? 'bg-primary-600' : 'bg-gray-300'"
-                :disabled="configSaving"
+                :disabled="configSaving || !isAdmin"
+                :title="!isAdmin ? 'Admin access required' : undefined"
               >
                 <span
                   class="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
@@ -135,14 +137,16 @@
             </label>
             <button
               @click="approveSelected"
-              :disabled="selectedIds.length === 0 || actionInProgress"
+              :disabled="selectedIds.length === 0 || actionInProgress || !isAdmin"
+              :title="!isAdmin ? 'Admin access required' : undefined"
               class="px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Approve Selected ({{ selectedIds.length }})
             </button>
             <button
               @click="dismissSelected"
-              :disabled="selectedIds.length === 0 || actionInProgress"
+              :disabled="selectedIds.length === 0 || actionInProgress || !isAdmin"
+              :title="!isAdmin ? 'Admin access required' : undefined"
               class="px-3 py-1.5 text-xs font-medium bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Dismiss Selected ({{ selectedIds.length }})
@@ -322,6 +326,7 @@
 </template>
 
 <script>
+import { useAdmin } from '../composables/useAdmin'
 import { getEnforceableRules } from '../utils/hygieneRules'
 import {
   getHygieneConfig,
@@ -335,6 +340,10 @@ import {
 
 export default {
   name: 'HygieneEnforcementView',
+  setup() {
+    const { isAdmin } = useAdmin()
+    return { isAdmin }
+  },
   data() {
     return {
       activeTab: 'pending',
