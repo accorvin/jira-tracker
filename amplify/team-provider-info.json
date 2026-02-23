@@ -15,11 +15,15 @@
       "function": {
         "jiraFetcher": {
           "deploymentBucketName": "amplify-jiratrackerapp-dev-3b596-deployment",
-          "s3Key": "amplify-builds/jiraFetcher-5552353433696d2b4c4a-build.zip"
+          "s3Key": "amplify-builds/jiraFetcher-50317352524339666349-build.zip"
         },
         "issuesReader": {
           "deploymentBucketName": "amplify-jiratrackerapp-dev-3b596-deployment",
-          "s3Key": "amplify-builds/issuesReader-2f4d754936354f453338-build.zip"
+          "s3Key": "amplify-builds/issuesReader-797146345a57726f5848-build.zip"
+        },
+        "hygieneEnforcer": {
+          "deploymentBucketName": "amplify-jiratrackerapp-dev-3b596-deployment",
+          "s3Key": "amplify-builds/hygieneEnforcer-79423546795075513050-build.zip"
         }
       },
       "api": {

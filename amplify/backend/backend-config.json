@@ -16,6 +16,11 @@
     }
   },
   "function": {
+    "hygieneEnforcer": {
+      "build": true,
+      "providerPlugin": "awscloudformation",
+      "service": "Lambda"
+    },
     "issuesReader": {
       "build": true,
       "providerPlugin": "awscloudformation",
@@ -28,6 +33,22 @@
     }
   },
   "parameters": {
+    "AMPLIFY_function_hygieneEnforcer_deploymentBucketName": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "hygieneEnforcer"
+        }
+      ]
+    },
+    "AMPLIFY_function_hygieneEnforcer_s3Key": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "hygieneEnforcer"
+        }
+      ]
+    },
     "AMPLIFY_function_issuesReader_deploymentBucketName": {
       "usedBy": [
         {

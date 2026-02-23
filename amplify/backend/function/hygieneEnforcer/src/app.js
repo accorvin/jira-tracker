@@ -7,9 +7,9 @@ const { S3Client, GetObjectCommand, PutObjectCommand, ListObjectsV2Command } = r
 const { SSMClient, GetParameterCommand } = require('@aws-sdk/client-ssm');
 const fetch = require('node-fetch');
 
-// Shared modules (co-located with jiraFetcher)
-const { hygieneRules, evaluateHygiene, getEnforceableRules } = require('../../jiraFetcher/src/shared/hygieneRules.cjs');
-const { processViolations } = require('../../jiraFetcher/src/shared/enforcementLogic.cjs');
+// Shared modules (local copies — keep in sync with jiraFetcher/src/shared/)
+const { hygieneRules, evaluateHygiene, getEnforceableRules } = require('./shared/hygieneRules.cjs');
+const { processViolations } = require('./shared/enforcementLogic.cjs');
 
 // AWS Clients
 const AWS_REGION = process.env.AWS_REGION || process.env.REGION || 'us-east-1';

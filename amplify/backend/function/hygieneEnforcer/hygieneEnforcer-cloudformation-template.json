@@ -1,6 +1,6 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "Hygiene Enforcer Lambda — detects violations and generates proposals",
+  "Description": "{\"createdOn\":\"Mac\",\"createdBy\":\"Amplify\",\"createdWith\":\"14.2.3\",\"stackType\":\"function-Lambda\",\"metadata\":{\"whyContinueWithGen1\":\"Prefer not to answer\"}}",
   "Parameters": {
     "CloudWatchRule": {
       "Type": "String",
@@ -251,7 +251,7 @@
                 "s3:PutObject"
               ],
               "Resource": [
-                "arn:aws:s3:::jira-tracker-*/*"
+                "arn:aws:s3:::*jira-tracker-*/*"
               ],
               "Effect": "Allow"
             },
@@ -260,7 +260,7 @@
                 "s3:ListBucket"
               ],
               "Resource": [
-                "arn:aws:s3:::jira-tracker-*"
+                "arn:aws:s3:::*jira-tracker-*"
               ],
               "Effect": "Allow"
             },

@@ -1,0 +1,6 @@
+{
+  "CloudWatchRule": "cron(0 8,20 * * ? *)",
+  "jiraHost": "https://issues.redhat.com",
+  "s3Bucket": "acorvin-jira-tracker-issues-dev",
+  "jiraTokenParameterName": "/jira-tracker-app/dev/jira-token"
+}

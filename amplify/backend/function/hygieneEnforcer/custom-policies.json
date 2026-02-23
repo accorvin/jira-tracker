@@ -5,7 +5,7 @@
       "s3:PutObject"
     ],
     "Resource": [
-      "arn:aws:s3:::jira-tracker-*/*"
+      "arn:aws:s3:::*jira-tracker-*/*"
     ]
   },
   {
@@ -13,7 +13,7 @@
       "s3:ListBucket"
     ],
     "Resource": [
-      "arn:aws:s3:::jira-tracker-*"
+      "arn:aws:s3:::*jira-tracker-*"
     ]
   },
   {

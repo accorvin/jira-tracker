@@ -15,6 +15,18 @@
     },
     "s3Key": {
       "Type": "String"
+    },
+    "s3Bucket": {
+      "Type": "String",
+      "Description": "S3 bucket for storing issues"
+    },
+    "jiraHost": {
+      "Type": "String",
+      "Description": "Jira host URL"
+    },
+    "firebaseProjectId": {
+      "Type": "String",
+      "Description": "Firebase project ID for token verification"
     }
   },
   "Conditions": {
@@ -69,6 +81,15 @@
             },
             "REGION": {
               "Ref": "AWS::Region"
+            },
+            "S3_BUCKET": {
+              "Ref": "s3Bucket"
+            },
+            "JIRA_HOST": {
+              "Ref": "jiraHost"
+            },
+            "FIREBASE_PROJECT_ID": {
+              "Ref": "firebaseProjectId"
             }
           }
         },
@@ -184,10 +205,20 @@
             },
             {
               "Action": [
+                "s3:GetObject",
+                "s3:PutObject"
+              ],
+              "Resource": [
+                "arn:aws:s3:::*jira-tracker-*/*"
+              ],
+              "Effect": "Allow"
+            },
+            {
+              "Action": [
                 "s3:ListBucket"
               ],
               "Resource": [
-                "arn:aws:s3:::jira-tracker-*"
+                "arn:aws:s3:::*jira-tracker-*"
               ],
               "Effect": "Allow"
             }

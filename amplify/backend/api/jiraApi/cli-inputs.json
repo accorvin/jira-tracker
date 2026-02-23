@@ -35,6 +35,13 @@
       "permissions": {
         "setting": "open"
       }
+    },
+    "/hygiene": {
+      "name": "/hygiene",
+      "lambdaFunction": "issuesReader",
+      "permissions": {
+        "setting": "open"
+      }
     }
   }
 }
