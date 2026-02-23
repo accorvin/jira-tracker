@@ -14,13 +14,14 @@ describe('TopNav', () => {
     })
 
     const buttons = wrapper.findAll('button')
-    expect(buttons).toHaveLength(4)
+    expect(buttons).toHaveLength(5)
 
     const buttonTexts = buttons.map(btn => btn.text())
     expect(buttonTexts).toContain('Release Tracking')
     expect(buttonTexts.some(text => text.includes('Feature Intake'))).toBe(true)
     expect(buttonTexts).toContain('Feature Roadmap')
     expect(buttonTexts).toContain('Priority View')
+    expect(buttonTexts.some(text => text.includes('Hygiene Enforcement'))).toBe(true)
   })
 
   it('highlights the current view tab', () => {

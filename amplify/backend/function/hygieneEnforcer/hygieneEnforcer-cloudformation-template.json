@@ -1,11 +1,11 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "{\"createdOn\":\"Mac\",\"createdBy\":\"Amplify\",\"createdWith\":\"12.15.0-next.0\",\"stackType\":\"function-Lambda\",\"metadata\":{\"whyContinueWithGen1\":\"Prefer not to answer\"}}",
+  "Description": "Hygiene Enforcer Lambda — detects violations and generates proposals",
   "Parameters": {
     "CloudWatchRule": {
       "Type": "String",
-      "Default": "NONE",
-      "Description": " Schedule Expression"
+      "Default": "cron(0 8,20 * * ? *)",
+      "Description": "Schedule Expression (twice daily at 8am and 8pm UTC)"
     },
     "deploymentBucketName": {
       "Type": "String"
@@ -15,6 +15,19 @@
     },
     "s3Key": {
       "Type": "String"
+    },
+    "jiraHost": {
+      "Type": "String",
+      "Description": "Jira host URL"
+    },
+    "s3Bucket": {
+      "Type": "String",
+      "Description": "S3 bucket for storing issues"
+    },
+    "jiraTokenParameterName": {
+      "Type": "String",
+      "Description": "SSM Parameter Store path for Jira API token",
+      "Default": "/jira-tracker-app/dev/jira-token"
     }
   },
   "Conditions": {
@@ -24,6 +37,18 @@
           "Ref": "env"
         },
         "NONE"
+      ]
+    },
+    "ShouldCreateSchedule": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "CloudWatchRule"
+            },
+            "NONE"
+          ]
+        }
       ]
     }
   },
@@ -47,12 +72,12 @@
         "FunctionName": {
           "Fn::If": [
             "ShouldNotCreateEnvResources",
-            "issuesReader",
+            "hygieneEnforcer",
             {
               "Fn::Join": [
                 "",
                 [
-                  "issuesReader",
+                  "hygieneEnforcer",
                   "-",
                   {
                     "Ref": "env"
@@ -69,6 +94,15 @@
             },
             "REGION": {
               "Ref": "AWS::Region"
+            },
+            "JIRA_HOST": {
+              "Ref": "jiraHost"
+            },
+            "JIRA_TOKEN_PARAMETER_NAME": {
+              "Ref": "jiraTokenParameterName"
+            },
+            "S3_BUCKET": {
+              "Ref": "s3Bucket"
             }
           }
         },
@@ -80,7 +114,7 @@
         },
         "Runtime": "nodejs18.x",
         "Layers": [],
-        "Timeout": 25
+        "Timeout": 300
       }
     },
     "LambdaExecutionRole": {
@@ -89,12 +123,12 @@
         "RoleName": {
           "Fn::If": [
             "ShouldNotCreateEnvResources",
-            "jiratrackerappLambdaRole41a4a37d",
+            "jiratrackerappLambdaRoleHygieneEnf",
             {
               "Fn::Join": [
                 "",
                 [
-                  "jiratrackerappLambdaRole41a4a37d",
+                  "jiratrackerappLambdaRoleHygieneEnf",
                   "-",
                   {
                     "Ref": "env"
@@ -165,6 +199,45 @@
         }
       }
     },
+    "ScheduledEventRule": {
+      "Type": "AWS::Events::Rule",
+      "Condition": "ShouldCreateSchedule",
+      "Properties": {
+        "Description": "Twice-daily hygiene enforcement run",
+        "ScheduleExpression": {
+          "Ref": "CloudWatchRule"
+        },
+        "State": "ENABLED",
+        "Targets": [
+          {
+            "Arn": {
+              "Fn::GetAtt": [
+                "LambdaFunction",
+                "Arn"
+              ]
+            },
+            "Id": "HygieneEnforcerScheduledTarget"
+          }
+        ]
+      }
+    },
+    "ScheduledEventPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Condition": "ShouldCreateSchedule",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "LambdaFunction"
+        },
+        "Action": "lambda:InvokeFunction",
+        "Principal": "events.amazonaws.com",
+        "SourceArn": {
+          "Fn::GetAtt": [
+            "ScheduledEventRule",
+            "Arn"
+          ]
+        }
+      }
+    },
     "CustomLambdaExecutionPolicy": {
       "Type": "AWS::IAM::Policy",
       "Properties": {
@@ -174,11 +247,11 @@
           "Statement": [
             {
               "Action": [
-                "lambda:InvokeFunction"
+                "s3:GetObject",
+                "s3:PutObject"
               ],
               "Resource": [
-                "arn:aws:lambda:us-east-1:585132637328:function:jiraFetcher-*",
-                "arn:aws:lambda:us-east-1:585132637328:function:hygieneEnforcer-*"
+                "arn:aws:s3:::jira-tracker-*/*"
               ],
               "Effect": "Allow"
             },
@@ -188,6 +261,15 @@
               ],
               "Resource": [
                 "arn:aws:s3:::jira-tracker-*"
+              ],
+              "Effect": "Allow"
+            },
+            {
+              "Action": [
+                "ssm:GetParameter"
+              ],
+              "Resource": [
+                "arn:aws:ssm:us-east-1:585132637328:parameter/jira-tracker-app/*/jira-token"
               ],
               "Effect": "Allow"
             }

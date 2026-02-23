@@ -24,6 +24,9 @@ const {
   buildPlanFields
 } = require('../amplify/backend/function/jiraFetcher/src/shared/jira-helpers');
 
+const { evaluateHygiene, getEnforceableRules } = require('../amplify/backend/function/jiraFetcher/src/shared/hygieneRules.cjs');
+const { processViolations } = require('../amplify/backend/function/jiraFetcher/src/shared/enforcementLogic.cjs');
+
 const app = express();
 app.use(express.json());
 
@@ -94,6 +97,220 @@ app.get('/api/plan-rankings', function(req, res) {
     return res.status(500).json({ error: 'Plan rankings data not found. Please refresh to fetch data from Jira.' });
   }
   res.json(data);
+});
+
+// ---------------------------------------------------------------------------
+// Hygiene enforcement routes (mock for local dev)
+// ---------------------------------------------------------------------------
+
+app.get('/api/hygiene/config', function(req, res) {
+  const data = readFromStorage('hygiene-config.json');
+  if (!data) {
+    return res.json({ rules: {} });
+  }
+  res.json(data);
+});
+
+app.post('/api/hygiene/config', function(req, res) {
+  const { rules } = req.body;
+  if (!rules || typeof rules !== 'object') {
+    return res.status(400).json({ error: 'Request must include "rules" object' });
+  }
+
+  const config = {
+    rules,
+    updatedAt: new Date().toISOString(),
+    updatedBy: 'dev@redhat.com'
+  };
+
+  writeToStorage('hygiene-config.json', config);
+  res.json({ success: true, ...config });
+});
+
+app.get('/api/hygiene/pending', function(req, res) {
+  const data = readFromStorage('hygiene-pending.json');
+  if (!data) {
+    return res.json({ proposals: [], lastRunAt: null });
+  }
+  res.json(data);
+});
+
+app.get('/api/hygiene/history', function(req, res) {
+  const data = readFromStorage('hygiene-history.json');
+  if (!data) {
+    return res.json({ runs: [] });
+  }
+  res.json(data);
+});
+
+app.post('/api/hygiene/approve', function(req, res) {
+  const { proposalIds } = req.body;
+  if (!proposalIds || !Array.isArray(proposalIds) || proposalIds.length === 0) {
+    return res.status(400).json({ error: 'Request must include "proposalIds" array' });
+  }
+
+  const data = readFromStorage('hygiene-pending.json');
+  if (!data || !data.proposals) {
+    return res.status(404).json({ error: 'No pending proposals found' });
+  }
+
+  const results = [];
+  for (const proposal of data.proposals) {
+    if (proposalIds.includes(proposal.id) && proposal.status === 'pending') {
+      proposal.status = 'applied';
+      proposal.appliedAt = new Date().toISOString();
+      results.push({ id: proposal.id, status: 'applied' });
+    }
+  }
+
+  writeToStorage('hygiene-pending.json', data);
+  res.json({ results });
+});
+
+app.post('/api/hygiene/dismiss', function(req, res) {
+  const { proposalIds } = req.body;
+  if (!proposalIds || !Array.isArray(proposalIds) || proposalIds.length === 0) {
+    return res.status(400).json({ error: 'Request must include "proposalIds" array' });
+  }
+
+  const data = readFromStorage('hygiene-pending.json');
+  if (!data || !data.proposals) {
+    return res.status(404).json({ error: 'No pending proposals found' });
+  }
+
+  const dismissed = [];
+  for (const proposal of data.proposals) {
+    if (proposalIds.includes(proposal.id) && proposal.status === 'pending') {
+      proposal.status = 'dismissed';
+      proposal.dismissedAt = new Date().toISOString();
+      proposal.dismissedBy = 'dev@redhat.com';
+      dismissed.push(proposal.id);
+    }
+  }
+
+  writeToStorage('hygiene-pending.json', data);
+  res.json({ success: true, dismissed });
+});
+
+/**
+ * POST /api/hygiene/run - Manually trigger an enforcement evaluation run.
+ * Reads local issue data, evaluates hygiene rules, applies dedup logic,
+ * and writes proposals + history — same as the Lambda would do in prod.
+ */
+app.post('/api/hygiene/run', function(req, res) {
+  const now = new Date().toISOString();
+  console.log(`Manual enforcement run triggered at ${now}`);
+
+  // 1. Read releases
+  const releasesData = readFromStorage('releases.json');
+  if (!releasesData || !releasesData.releases || releasesData.releases.length === 0) {
+    return res.json({ message: 'No releases configured', proposalCount: 0 });
+  }
+
+  // 2. Read all issues across all releases (deduplicated)
+  const allIssues = [];
+  const seenKeys = new Set();
+
+  for (const release of releasesData.releases) {
+    const data = readFromStorage(`issues-${release.name}.json`);
+    if (data && data.issues) {
+      for (const issue of data.issues) {
+        if (!seenKeys.has(issue.key)) {
+          seenKeys.add(issue.key);
+          allIssues.push(issue);
+        }
+      }
+    }
+  }
+
+  console.log(`Loaded ${allIssues.length} unique issues across ${releasesData.releases.length} releases`);
+
+  // 3. Read enforcement config
+  const config = readFromStorage('hygiene-config.json');
+  const enabledRuleIds = [];
+  if (config && config.rules) {
+    for (const [ruleId, ruleConfig] of Object.entries(config.rules)) {
+      if (ruleConfig.enabled) enabledRuleIds.push(ruleId);
+    }
+  }
+
+  if (enabledRuleIds.length === 0) {
+    return res.json({ message: 'No rules enabled', proposalCount: 0 });
+  }
+
+  console.log(`Enabled rules: ${enabledRuleIds.join(', ')}`);
+
+  // 4. Read state ledger
+  const ledger = readFromStorage('hygiene-state.json') || {};
+
+  // 5. Evaluate hygiene rules and build violations
+  const enforceableRules = getEnforceableRules();
+  const enforceableRuleMap = new Map(enforceableRules.map(r => [r.id, r]));
+
+  const violations = [];
+  for (const issue of allIssues) {
+    const issueViolations = evaluateHygiene(issue);
+    for (const v of issueViolations) {
+      const rule = enforceableRuleMap.get(v.id);
+      if (!rule) continue;
+
+      violations.push({
+        issueKey: issue.key,
+        issueSummary: issue.summary,
+        issueAssignee: issue.assignee || null,
+        issueStatus: issue.status,
+        ruleId: rule.id,
+        ruleName: rule.name,
+        actionType: rule.enforcement.type,
+        targetStatus: rule.enforcement.targetStatus || null,
+        comment: rule.enforcement.commentTemplate
+      });
+    }
+  }
+
+  console.log(`Found ${violations.length} enforceable violations`);
+
+  // 6. Apply dedup logic
+  const { proposals, updatedLedger } = processViolations(violations, ledger, enabledRuleIds);
+
+  console.log(`Generated ${proposals.length} new proposals after dedup`);
+
+  // 7. Merge with existing pending proposals
+  const pendingData = readFromStorage('hygiene-pending.json') || { proposals: [] };
+  const existingPending = pendingData.proposals.filter(p => p.status === 'pending');
+  const mergedProposals = [...existingPending, ...proposals];
+
+  writeToStorage('hygiene-pending.json', {
+    proposals: mergedProposals,
+    lastRunAt: now
+  });
+
+  // 8. Update state ledger
+  writeToStorage('hygiene-state.json', updatedLedger);
+
+  // 9. Write history entry
+  const historyEntry = {
+    runAt: now,
+    totalIssuesEvaluated: allIssues.length,
+    totalViolationsFound: violations.length,
+    newProposalsGenerated: proposals.length,
+    enabledRules: enabledRuleIds,
+    proposals: proposals
+  };
+
+  const existingHistory = readFromStorage('hygiene-history.json') || { runs: [] };
+  existingHistory.runs.unshift(historyEntry);
+  writeToStorage('hygiene-history.json', existingHistory);
+
+  console.log(`Enforcement run complete: ${proposals.length} proposals generated`);
+
+  res.json({
+    message: 'Enforcement run complete',
+    totalIssues: allIssues.length,
+    totalViolations: violations.length,
+    proposalCount: proposals.length,
+    enabledRules: enabledRuleIds
+  });
 });
 
 // ---------------------------------------------------------------------------

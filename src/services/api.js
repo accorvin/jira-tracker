@@ -297,3 +297,207 @@ export async function getIntakeFeatures() {
     throw error;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Hygiene Enforcement API
+// ---------------------------------------------------------------------------
+
+/**
+ * Get hygiene enforcement config (rule toggles)
+ * @returns {Promise<{rules: Object, updatedAt?: string, updatedBy?: string}>}
+ */
+export async function getHygieneConfig() {
+  try {
+    const token = await getAuthToken();
+
+    const response = await fetch(`${API_ENDPOINT}/hygiene/config`, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 401) throw new Error('Authentication failed. Please sign in again.');
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Get hygiene config error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Save hygiene enforcement config (rule toggles)
+ * @param {Object} rules - Rule toggle map, e.g. { "missing-rice-score": { enabled: true } }
+ * @returns {Promise<{success: boolean}>}
+ */
+export async function saveHygieneConfig(rules) {
+  try {
+    const token = await getAuthToken();
+
+    const response = await fetch(`${API_ENDPOINT}/hygiene/config`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ rules })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 401) throw new Error('Authentication failed. Please sign in again.');
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Save hygiene config error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get pending hygiene proposals
+ * @returns {Promise<{proposals: Array, lastRunAt: string|null}>}
+ */
+export async function getHygienePending() {
+  try {
+    const token = await getAuthToken();
+
+    const response = await fetch(`${API_ENDPOINT}/hygiene/pending`, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 401) throw new Error('Authentication failed. Please sign in again.');
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Get hygiene pending error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get hygiene enforcement run history
+ * @returns {Promise<{runs: Array}>}
+ */
+export async function getHygieneHistory() {
+  try {
+    const token = await getAuthToken();
+
+    const response = await fetch(`${API_ENDPOINT}/hygiene/history`, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 401) throw new Error('Authentication failed. Please sign in again.');
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Get hygiene history error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Approve and apply pending proposals
+ * @param {Array<string>} proposalIds - IDs of proposals to approve
+ * @returns {Promise<{results: Array}>}
+ */
+export async function approveProposals(proposalIds) {
+  try {
+    const token = await getAuthToken();
+
+    const response = await fetch(`${API_ENDPOINT}/hygiene/approve`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ proposalIds })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 401) throw new Error('Authentication failed. Please sign in again.');
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Approve proposals error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Manually trigger an enforcement evaluation run
+ * @returns {Promise<{message: string, proposalCount: number, ...}>}
+ */
+export async function runHygieneEnforcement() {
+  try {
+    const token = await getAuthToken();
+
+    const response = await fetch(`${API_ENDPOINT}/hygiene/run`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 401) throw new Error('Authentication failed. Please sign in again.');
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Run hygiene enforcement error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Dismiss pending proposals
+ * @param {Array<string>} proposalIds - IDs of proposals to dismiss
+ * @returns {Promise<{success: boolean, dismissed: Array}>}
+ */
+export async function dismissProposals(proposalIds) {
+  try {
+    const token = await getAuthToken();
+
+    const response = await fetch(`${API_ENDPOINT}/hygiene/dismiss`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ proposalIds })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 401) throw new Error('Authentication failed. Please sign in again.');
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Dismiss proposals error:', error);
+    throw error;
+  }
+}

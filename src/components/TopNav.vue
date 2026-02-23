@@ -38,6 +38,7 @@ const tabs = [
   { id: 'release-tracking', label: 'Release Tracking' },
   { id: 'feature-intake', label: 'Feature Intake', badge: 'Beta' },
   { id: 'roadmap', label: 'Feature Roadmap' },
-  { id: 'priority', label: 'Priority View' }
+  { id: 'priority', label: 'Priority View' },
+  { id: 'hygiene', label: 'Hygiene Enforcement', badge: 'New' }
 ]
 </script>

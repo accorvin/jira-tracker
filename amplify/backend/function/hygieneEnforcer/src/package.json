@@ -1,0 +1,15 @@
+{
+  "name": "hygieneenforcer",
+  "version": "1.0.0",
+  "description": "Lambda function for hygiene enforcement",
+  "main": "index.js",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.948.0",
+    "@aws-sdk/client-ssm": "^3.948.0",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.92"
+  }
+}

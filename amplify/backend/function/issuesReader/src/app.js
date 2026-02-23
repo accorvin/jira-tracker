@@ -354,6 +354,259 @@ app.post('/refresh', async function(req, res) {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Hygiene Enforcement endpoints
+// ---------------------------------------------------------------------------
+
+/**
+ * GET /hygiene/config - Get enforcement rule toggles
+ */
+app.get('/hygiene/config', async function(req, res) {
+  try {
+    const authHeader = req.headers.authorization;
+    const verification = await verifyFirebaseToken(authHeader);
+    if (!verification.valid) {
+      return res.status(401).json({ error: verification.error });
+    }
+
+    console.log(`Reading hygiene config (user: ${verification.email})`);
+
+    const data = await readFromS3('hygiene/config.json');
+    if (!data) {
+      return res.json({ rules: {} });
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error('Read hygiene config error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /hygiene/config - Save enforcement rule toggles
+ */
+app.post('/hygiene/config', async function(req, res) {
+  try {
+    const authHeader = req.headers.authorization;
+    const verification = await verifyFirebaseToken(authHeader);
+    if (!verification.valid) {
+      return res.status(401).json({ error: verification.error });
+    }
+
+    const { rules } = req.body;
+    if (!rules || typeof rules !== 'object') {
+      return res.status(400).json({ error: 'Request must include "rules" object' });
+    }
+
+    console.log(`Saving hygiene config (user: ${verification.email})`);
+
+    const config = {
+      rules,
+      updatedAt: new Date().toISOString(),
+      updatedBy: verification.email
+    };
+
+    await writeToS3('hygiene/config.json', config);
+
+    res.json({ success: true, ...config });
+  } catch (error) {
+    console.error('Save hygiene config error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /hygiene/pending - Get pending proposals
+ */
+app.get('/hygiene/pending', async function(req, res) {
+  try {
+    const authHeader = req.headers.authorization;
+    const verification = await verifyFirebaseToken(authHeader);
+    if (!verification.valid) {
+      return res.status(401).json({ error: verification.error });
+    }
+
+    console.log(`Reading pending proposals (user: ${verification.email})`);
+
+    const data = await readFromS3('hygiene/pending.json');
+    if (!data) {
+      return res.json({ proposals: [], lastRunAt: null });
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error('Read pending proposals error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /hygiene/history - Get enforcement run history
+ */
+app.get('/hygiene/history', async function(req, res) {
+  try {
+    const authHeader = req.headers.authorization;
+    const verification = await verifyFirebaseToken(authHeader);
+    if (!verification.valid) {
+      return res.status(401).json({ error: verification.error });
+    }
+
+    console.log(`Reading hygiene history (user: ${verification.email})`);
+
+    // List history files from S3
+    const { ListObjectsV2Command } = require('@aws-sdk/client-s3');
+    const listCommand = new ListObjectsV2Command({
+      Bucket: S3_BUCKET,
+      Prefix: 'hygiene/history/',
+      MaxKeys: 50
+    });
+
+    const listResponse = await s3Client.send(listCommand);
+    const runs = [];
+
+    if (listResponse.Contents) {
+      // Sort by key descending (most recent first)
+      const sorted = listResponse.Contents
+        .filter(obj => obj.Key.endsWith('.json'))
+        .sort((a, b) => b.Key.localeCompare(a.Key))
+        .slice(0, 20);
+
+      for (const obj of sorted) {
+        const data = await readFromS3(obj.Key);
+        if (data) runs.push(data);
+      }
+    }
+
+    res.json({ runs });
+  } catch (error) {
+    console.error('Read hygiene history error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /hygiene/run - Manually trigger an enforcement evaluation run
+ */
+app.post('/hygiene/run', async function(req, res) {
+  try {
+    const authHeader = req.headers.authorization;
+    const verification = await verifyFirebaseToken(authHeader);
+    if (!verification.valid) {
+      return res.status(401).json({ error: verification.error });
+    }
+
+    console.log(`Manual enforcement run requested (user: ${verification.email})`);
+
+    // Invoke hygieneEnforcer Lambda synchronously
+    const functionName = `hygieneEnforcer-${process.env.ENV}`;
+    const command = new InvokeCommand({
+      FunctionName: functionName,
+      InvocationType: 'RequestResponse',
+      Payload: JSON.stringify({ source: 'manual-run' })
+    });
+
+    const lambdaResponse = await lambdaClient.send(command);
+    const payload = JSON.parse(Buffer.from(lambdaResponse.Payload).toString());
+
+    if (lambdaResponse.StatusCode !== 200 || payload.statusCode !== 200) {
+      const errorBody = typeof payload.body === 'string' ? JSON.parse(payload.body) : payload.body;
+      throw new Error(errorBody?.error || 'Failed to run enforcement');
+    }
+
+    const result = typeof payload.body === 'string' ? JSON.parse(payload.body) : payload.body;
+    res.json(result);
+  } catch (error) {
+    console.error('Manual enforcement run error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /hygiene/approve - Approve and apply pending proposals
+ */
+app.post('/hygiene/approve', async function(req, res) {
+  try {
+    const authHeader = req.headers.authorization;
+    const verification = await verifyFirebaseToken(authHeader);
+    if (!verification.valid) {
+      return res.status(401).json({ error: verification.error });
+    }
+
+    const { proposalIds } = req.body;
+    if (!proposalIds || !Array.isArray(proposalIds) || proposalIds.length === 0) {
+      return res.status(400).json({ error: 'Request must include "proposalIds" array' });
+    }
+
+    console.log(`Approving ${proposalIds.length} proposals (user: ${verification.email})`);
+
+    // Invoke hygieneEnforcer Lambda to apply
+    const functionName = `hygieneEnforcer-${process.env.ENV}`;
+    const command = new InvokeCommand({
+      FunctionName: functionName,
+      InvocationType: 'RequestResponse',
+      Payload: JSON.stringify({ source: 'apply-approved', proposalIds })
+    });
+
+    const lambdaResponse = await lambdaClient.send(command);
+    const payload = JSON.parse(Buffer.from(lambdaResponse.Payload).toString());
+
+    if (lambdaResponse.StatusCode !== 200 || payload.statusCode !== 200) {
+      const errorBody = typeof payload.body === 'string' ? JSON.parse(payload.body) : payload.body;
+      throw new Error(errorBody?.error || 'Failed to apply proposals');
+    }
+
+    const result = typeof payload.body === 'string' ? JSON.parse(payload.body) : payload.body;
+    res.json(result);
+  } catch (error) {
+    console.error('Approve proposals error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /hygiene/dismiss - Dismiss pending proposals
+ */
+app.post('/hygiene/dismiss', async function(req, res) {
+  try {
+    const authHeader = req.headers.authorization;
+    const verification = await verifyFirebaseToken(authHeader);
+    if (!verification.valid) {
+      return res.status(401).json({ error: verification.error });
+    }
+
+    const { proposalIds } = req.body;
+    if (!proposalIds || !Array.isArray(proposalIds) || proposalIds.length === 0) {
+      return res.status(400).json({ error: 'Request must include "proposalIds" array' });
+    }
+
+    console.log(`Dismissing ${proposalIds.length} proposals (user: ${verification.email})`);
+
+    // Read pending, update status, write back
+    const pendingData = await readFromS3('hygiene/pending.json');
+    if (!pendingData || !pendingData.proposals) {
+      return res.status(404).json({ error: 'No pending proposals found' });
+    }
+
+    const dismissed = [];
+    for (const proposal of pendingData.proposals) {
+      if (proposalIds.includes(proposal.id) && proposal.status === 'pending') {
+        proposal.status = 'dismissed';
+        proposal.dismissedAt = new Date().toISOString();
+        proposal.dismissedBy = verification.email;
+        dismissed.push(proposal.id);
+      }
+    }
+
+    await writeToS3('hygiene/pending.json', pendingData);
+
+    res.json({ success: true, dismissed });
+  } catch (error) {
+    console.error('Dismiss proposals error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Handle OPTIONS for CORS preflight
 app.options('/refresh', function(req, res) {
   res.status(200).end();
@@ -376,6 +629,10 @@ app.options('/intake', function(req, res) {
 });
 
 app.options('/plan-rankings', function(req, res) {
+  res.status(200).end();
+});
+
+app.options('/hygiene/*', function(req, res) {
   res.status(200).end();
 });
 

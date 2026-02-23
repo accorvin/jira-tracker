@@ -1,25 +1,38 @@
 /**
- * Hygiene Rules Engine
+ * Hygiene Rules Engine (Shared Module)
  * Evaluates issues against project management hygiene policies.
+ * Used by both frontend (via ESM wrapper) and backend Lambda functions.
  *
- * NOTE: A CommonJS copy of this file exists at
- *   amplify/backend/function/jiraFetcher/src/shared/hygieneRules.cjs
- * for Lambda and dev-server consumption. Keep both files in sync
- * when modifying rule definitions.
+ * CommonJS format for Lambda compatibility.
  */
 
 // Status group constants
 const REFINEMENT_STATUSES = ['Refinement']
 const IN_PROGRESS_STATUSES = ['In Progress', 'Review', 'Testing']
 
+/**
+ * Check if issue is in Refinement status
+ * @param {Object} issue
+ * @returns {boolean}
+ */
 function isInRefinement(issue) {
   return REFINEMENT_STATUSES.includes(issue.status)
 }
 
+/**
+ * Check if issue is in any In Progress status
+ * @param {Object} issue
+ * @returns {boolean}
+ */
 function isInProgress(issue) {
   return IN_PROGRESS_STATUSES.includes(issue.status)
 }
 
+/**
+ * Calculate days between a date and now
+ * @param {string} dateString - ISO 8601 date string
+ * @returns {number} Days elapsed (rounded down)
+ */
 function getDaysSince(dateString) {
   if (!dateString) return 0
   const date = new Date(dateString)
@@ -29,15 +42,30 @@ function getDaysSince(dateString) {
   return diffDays
 }
 
+/**
+ * Get days since issue entered current status
+ * @param {Object} issue
+ * @returns {number}
+ */
 function getDaysInStatus(issue) {
   return getDaysSince(issue.statusEnteredAt)
 }
 
+/**
+ * Get days since status summary was last updated
+ * @param {Object} issue
+ * @returns {number|null}
+ */
 function getDaysSinceStatusSummaryUpdate(issue) {
   if (!issue.statusSummaryUpdated) return null
   return getDaysSince(issue.statusSummaryUpdated)
 }
 
+/**
+ * Parse release version string into comparable parts
+ * @param {string} release - e.g., "rhoai-3.4-ea1", "rhoai-3.3"
+ * @returns {{ major: number, minor: number, suffix: string } | null}
+ */
 function parseReleaseVersion(release) {
   if (!release) return null
   const match = release.match(/rhoai-(\d+)\.(\d+)(?:-([A-Za-z0-9]+))?/)
@@ -49,17 +77,44 @@ function parseReleaseVersion(release) {
   }
 }
 
+/**
+ * Check if a release is <= 3.4-ea1 (grandfathered for RICE requirement)
+ * Grandfathered releases: 3.3 and earlier, 3.4-ea1
+ * @param {string} release
+ * @returns {boolean}
+ */
 function isGrandfatheredRelease(release) {
   const parsed = parseReleaseVersion(release)
   if (!parsed) return false
+
+  // Anything before 3.3 is grandfathered
   if (parsed.major < 3) return true
   if (parsed.major === 3 && parsed.minor < 3) return true
+
+  // 3.3.x is grandfathered (any suffix)
   if (parsed.major === 3 && parsed.minor === 3) return true
+
+  // 3.4-ea1 specifically is grandfathered
   if (parsed.major === 3 && parsed.minor === 4 && parsed.suffix === 'ea1') return true
+
+  // Everything else (3.4 GA, 3.5+, etc.) is not grandfathered
   return false
 }
 
-export const hygieneRules = [
+/**
+ * Hygiene Rules Configuration
+ * Each rule has:
+ * - id: unique identifier
+ * - name: short descriptive name
+ * - description: detailed explanation
+ * - check: function(issue) => boolean (true if violation exists)
+ * - message: function(issue) => string (detailed, actionable message)
+ * - enforcement: optional object describing automated enforcement action
+ *   - type: 'transition' | 'comment-only'
+ *   - targetStatus: target status for transitions
+ *   - commentTemplate: comment text to post on the Jira issue
+ */
+const hygieneRules = [
   {
     id: 'stale-refinement',
     name: 'Stale Refinement',
@@ -117,9 +172,11 @@ export const hygieneRules = [
       }
 
       if (issue.statusSummary) {
+        // Has summary - check if stale
         const daysSinceUpdate = getDaysSinceStatusSummaryUpdate(issue)
         return daysSinceUpdate !== null && daysSinceUpdate > 7
       } else {
+        // No summary - check if been in status > 7 days
         return getDaysInStatus(issue) > 7
       }
     },
@@ -207,12 +264,14 @@ export const hygieneRules = [
     name: 'Missing Docs Required',
     description: 'Features In Progress need to specify whether product documentation is required so docs team can plan accordingly.',
     check: (issue) => {
+      // Only check for Features in In Progress statuses
       if (issue.issueType !== 'Feature') {
         return false
       }
       if (!isInProgress(issue)) {
         return false
       }
+      // Trigger if docsRequired is null, undefined, or "None"
       return !issue.docsRequired || issue.docsRequired === 'None'
     },
     message: (issue) => {
@@ -247,14 +306,20 @@ export const hygieneRules = [
     check: (issue) => {
       if (issue.issueType !== 'Feature') return false
 
+      // RICE score is set if riceStatus is 'complete'
       const hasRiceScore = issue.riceStatus === 'complete'
       if (hasRiceScore) return false
 
+      // In Refinement - always required
       if (isInRefinement(issue)) return true
 
+      // In Progress - check grandfathering
       if (isInProgress(issue)) {
+        // Get the first target release
         const targetRelease = issue.targetRelease && issue.targetRelease[0]
+        // If grandfathered release, no violation
         if (isGrandfatheredRelease(targetRelease)) return false
+        // Not grandfathered - violation
         return true
       }
 
@@ -274,7 +339,12 @@ export const hygieneRules = [
   }
 ]
 
-export function evaluateHygiene(issue) {
+/**
+ * Evaluate all hygiene rules for an issue
+ * @param {Object} issue - Issue object with all required fields
+ * @returns {Array<{id: string, name: string, message: string}>} Array of violations
+ */
+function evaluateHygiene(issue) {
   return hygieneRules
     .filter(rule => rule.check(issue))
     .map(rule => ({
@@ -284,6 +354,16 @@ export function evaluateHygiene(issue) {
     }))
 }
 
-export function getEnforceableRules() {
+/**
+ * Get only the rules that have enforcement configured
+ * @returns {Array} Rules with enforcement metadata
+ */
+function getEnforceableRules() {
   return hygieneRules.filter(rule => rule.enforcement)
+}
+
+module.exports = {
+  hygieneRules,
+  evaluateHygiene,
+  getEnforceableRules
 }
