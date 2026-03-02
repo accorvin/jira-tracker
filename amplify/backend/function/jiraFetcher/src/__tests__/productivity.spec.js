@@ -206,15 +206,15 @@ describe('Productivity API Endpoints', () => {
         teams: {
           'AIP AI Pipelines': {
             displayName: 'AI Pipelines',
-            engineers: [
-              { name: 'Helber Belmiro', jiraDisplayName: 'Helber Belmiro' },
-              { name: 'Vani Haripriya Mudadla', jiraDisplayName: 'Vani Haripriya Mudadla' }
+            members: [
+              { name: 'Helber Belmiro', jiraDisplayName: 'Helber Belmiro', manager: 'Cathal O\'Connor', specialty: 'Backend Engineer' },
+              { name: 'Vani Haripriya Mudadla', jiraDisplayName: 'Vani Haripriya Mudadla', manager: 'Cathal O\'Connor', specialty: 'Backend Engineer' }
             ]
           },
           'AIP MLflow': {
             displayName: 'MLflow',
-            engineers: [
-              { name: 'Matt Prahl', jiraDisplayName: 'Matt Prahl' }
+            members: [
+              { name: 'Matt Prahl', jiraDisplayName: 'Matt Prahl', manager: 'Alex Corvin', specialty: 'Staff Engineers' }
             ]
           }
         }
@@ -225,14 +225,16 @@ describe('Productivity API Endpoints', () => {
       // Expected response structure
       const expectedResponse = {
         teams: [
-          { name: 'AIP AI Pipelines', displayName: 'AI Pipelines', engineerCount: 2 },
-          { name: 'AIP MLflow', displayName: 'MLflow', engineerCount: 1 }
+          { name: 'All Teams', displayName: 'All Teams', memberCount: 3 },
+          { name: 'AIP AI Pipelines', displayName: 'AI Pipelines', memberCount: 2 },
+          { name: 'AIP MLflow', displayName: 'MLflow', memberCount: 1 }
         ]
       };
 
       // This would be tested with supertest in actual implementation
-      expect(expectedResponse.teams).toHaveLength(2);
-      expect(expectedResponse.teams[0].engineerCount).toBe(2);
+      expect(expectedResponse.teams).toHaveLength(3);
+      expect(expectedResponse.teams[0].name).toBe('All Teams');
+      expect(expectedResponse.teams[1].memberCount).toBe(2);
     });
 
     it('should handle missing org-roster.json gracefully', async () => {
@@ -262,8 +264,8 @@ describe('Productivity API Endpoints', () => {
         teams: {
           'AIP AI Pipelines': {
             displayName: 'AI Pipelines',
-            engineers: [
-              { name: 'Helber Belmiro', jiraDisplayName: 'Helber Belmiro' }
+            members: [
+              { name: 'Helber Belmiro', jiraDisplayName: 'Helber Belmiro', manager: 'Cathal O\'Connor', specialty: 'Backend Engineer' }
             ]
           }
         }
@@ -286,9 +288,11 @@ describe('Productivity API Endpoints', () => {
       const expectedResponse = {
         team: 'AIP AI Pipelines',
         period: 'weekly',
-        engineers: expect.arrayContaining([
+        members: expect.arrayContaining([
           expect.objectContaining({
             name: 'Helber Belmiro',
+            specialty: 'Backend Engineer',
+            manager: 'Cathal O\'Connor',
             totalIssuesResolved: expect.any(Number),
             breakdown: expect.any(Array)
           })

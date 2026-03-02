@@ -24,7 +24,10 @@ const {
   transformIntakeFeature,
   buildIssueFields,
   buildIntakeFields,
-  buildPlanFields
+  buildPlanFields,
+  buildProductivityJql,
+  calculateCycleTime,
+  aggregateByPeriod
 } = require('./shared/jira-helpers');
 
 const app = express();
@@ -529,6 +532,222 @@ app.post('/refresh', async function(req, res) {
 
 // Handle OPTIONS for CORS preflight
 app.options('/refresh', function(req, res) {
+  res.status(200).end();
+});
+
+/**
+ * GET /productivity/teams - Get list of available teams
+ */
+app.get('/productivity/teams', async function(req, res) {
+  try {
+    // Read org-roster.json from S3
+    const orgRoster = await readFromS3('org-roster.json');
+
+    // Transform to teams array
+    const teams = Object.entries(orgRoster.teams || {}).map(([name, data]) => ({
+      name: name,
+      displayName: data.displayName || name,
+      memberCount: data.members?.length || 0
+    }));
+
+    // Add "All Teams" option at the top
+    const totalMembers = teams.reduce((sum, t) => sum + t.memberCount, 0);
+    teams.unshift({
+      name: 'All Teams',
+      displayName: 'All Teams',
+      memberCount: totalMembers
+    });
+
+    res.json({ teams });
+
+  } catch (error) {
+    console.error('Get productivity teams error:', error);
+
+    if (error.message?.includes('not found') || error.message?.includes('NoSuchKey')) {
+      return res.status(404).json({
+        error: 'Org roster data not found. Please contact administrator.'
+      });
+    }
+
+    res.status(500).json({
+      error: error.message || 'Failed to fetch teams'
+    });
+  }
+});
+
+/**
+ * GET /productivity?team=<name>&period=<weekly|monthly|quarterly>
+ * Get productivity metrics for a team
+ */
+app.get('/productivity', async function(req, res) {
+  try {
+    const { team, period } = req.query;
+
+    // Validate parameters
+    if (!team) {
+      return res.status(400).json({
+        error: 'Missing required parameter: team'
+      });
+    }
+
+    if (!period || !['weekly', 'monthly', 'quarterly'].includes(period)) {
+      return res.status(400).json({
+        error: 'Invalid or missing period. Must be: weekly, monthly, or quarterly'
+      });
+    }
+
+    // Read org-roster.json from S3
+    const orgRoster = await readFromS3('org-roster.json');
+
+    // Collect member names and metadata
+    let memberNames = [];
+    const memberMetadata = {};
+
+    if (team === 'All Teams') {
+      // Aggregate across all teams
+      Object.entries(orgRoster.teams || {}).forEach(([teamName, teamData]) => {
+        (teamData.members || []).forEach(m => {
+          memberNames.push(m.jiraDisplayName);
+          memberMetadata[m.jiraDisplayName] = {
+            specialty: m.specialty || 'Unknown',
+            manager: m.manager || 'Unknown',
+            team: teamName
+          };
+        });
+      });
+    } else {
+      // Single team
+      const teamData = orgRoster.teams?.[team];
+      if (!teamData) {
+        return res.status(404).json({
+          error: `Team not found: ${team}`
+        });
+      }
+
+      // Extract member names and metadata
+      (teamData.members || []).forEach(m => {
+        memberNames.push(m.jiraDisplayName);
+        memberMetadata[m.jiraDisplayName] = {
+          specialty: m.specialty || 'Unknown',
+          manager: m.manager || 'Unknown',
+          team: team
+        };
+      });
+    }
+
+    if (memberNames.length === 0) {
+      return res.json({
+        team,
+        period,
+        startDate: new Date().toISOString(),
+        endDate: new Date().toISOString(),
+        members: []
+      });
+    }
+
+    // Calculate date range based on period
+    const endDate = new Date();
+    const startDate = new Date();
+
+    if (period === 'weekly') {
+      startDate.setDate(endDate.getDate() - 28); // Last 4 weeks
+    } else if (period === 'monthly') {
+      startDate.setDate(endDate.getDate() - 180); // Last 6 months
+    } else if (period === 'quarterly') {
+      startDate.setDate(endDate.getDate() - 365); // Last 4 quarters
+    }
+
+    // Format start date for JQL (YYYY-MM-DD)
+    const year = startDate.getFullYear();
+    const month = String(startDate.getMonth() + 1).padStart(2, '0');
+    const day = String(startDate.getDate()).padStart(2, '0');
+    const startDateStr = `${year}-${month}-${day}`;
+
+    // Build JQL query
+    const jql = buildProductivityJql(memberNames, startDateStr);
+
+    // Fetch issues from Jira
+    const jiraToken = await getJiraToken();
+    const issues = [];
+    let startAt = 0;
+    const maxResults = 100;
+
+    while (true) {
+      const url = new URL(`${JIRA_HOST}/rest/api/2/search`);
+      url.searchParams.set('jql', jql);
+      url.searchParams.set('startAt', startAt.toString());
+      url.searchParams.set('maxResults', maxResults.toString());
+      url.searchParams.set('fields', 'key,assignee,created,resolved,customfield_12310243,customfield_12310920,storyPoints');
+
+      const response = await fetch(url.toString(), {
+        headers: {
+          'Authorization': `Bearer ${jiraToken}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Jira API error (${response.status}): ${errorText}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.issues || data.issues.length === 0) {
+        break;
+      }
+
+      issues.push(...data.issues);
+
+      if (data.issues.length < maxResults) {
+        break;
+      }
+
+      startAt += maxResults;
+    }
+
+    console.log(`Fetched ${issues.length} resolved issues for team ${team}`);
+
+    // Aggregate by member and period
+    const aggregated = aggregateByPeriod(issues, period);
+
+    // Convert to array format and enrich with metadata
+    const members = Object.values(aggregated).map(member => ({
+      ...member,
+      specialty: memberMetadata[member.name]?.specialty || 'Unknown',
+      manager: memberMetadata[member.name]?.manager || 'Unknown',
+      team: memberMetadata[member.name]?.team || team
+    }));
+
+    res.json({
+      team,
+      period,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      members
+    });
+
+  } catch (error) {
+    console.error('Get productivity data error:', error);
+
+    if (error.message?.includes('not found') || error.message?.includes('NoSuchKey')) {
+      return res.status(404).json({
+        error: 'Org roster data not found. Please contact administrator.'
+      });
+    }
+
+    res.status(500).json({
+      error: error.message || 'Failed to fetch productivity data'
+    });
+  }
+});
+
+// Handle OPTIONS for CORS preflight
+app.options('/productivity/teams', function(req, res) {
+  res.status(200).end();
+});
+
+app.options('/productivity', function(req, res) {
   res.status(200).end();
 });
 
