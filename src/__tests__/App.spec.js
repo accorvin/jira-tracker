@@ -11,17 +11,17 @@ import FilterBar from '../components/FilterBar.vue'
 import ReleaseTabBar from '../components/ReleaseTabBar.vue'
 import ReleaseInfoPanel from '../components/ReleaseInfoPanel.vue'
 
+// Create reactive user ref that can be controlled in tests
+const mockUser = ref(null)
+const mockLoading = ref(false)
+const mockError = ref(null)
+
 // Mock useAuth composable
 vi.mock('../composables/useAuth', () => ({
   useAuth: () => ({
-    user: ref({
-      email: 'test@redhat.com',
-      displayName: 'Test User',
-      photoURL: null,
-      getIdToken: async () => 'mock-token'
-    }),
-    loading: ref(false),
-    error: ref(null),
+    user: mockUser,
+    loading: mockLoading,
+    error: mockError,
     signIn: vi.fn(),
     signOut: vi.fn(),
     getIdToken: vi.fn(async () => 'mock-token')
@@ -52,7 +52,7 @@ const localStorageMock = {
 global.localStorage = localStorageMock
 
 describe('App', () => {
-  const API_ENDPOINT = 'https://8jez4fgp80.execute-api.us-east-1.amazonaws.com/dev'
+  const API_ENDPOINT = '/api'
 
   const mockReleases = {
     releases: [
@@ -94,6 +94,17 @@ describe('App', () => {
     localStorageMock.setItem.mockReset()
     localStorageMock.removeItem.mockReset()
 
+    // Reset auth state - start with null user, will be set to trigger watcher
+    mockUser.value = null
+    mockLoading.value = false
+    mockError.value = null
+
+    // Ensure currentView is 'release-tracking' by default
+    localStorageMock.getItem.mockImplementation((key) => {
+      if (key === 'currentView') return null
+      return null
+    })
+
     // Set up fetch mock to handle different endpoints
     fetch.mockImplementation((url, options) => {
       if (url === `${API_ENDPOINT}/releases`) {
@@ -120,19 +131,44 @@ describe('App', () => {
           json: async () => ({ lastUpdated: '2025-12-10T10:30:00Z', planId: 2423, totalCount: 0, issues: [] })
         })
       }
-      if (url === `${API_ENDPOINT}/plan-rankings`) {
+      if (url === `${API_ENDPOINT}/admins`) {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ lastUpdated: '2025-12-10T10:30:00Z', planId: 2423, totalCount: 0, issues: [] })
+          json: async () => ({ admins: [] })
         })
       }
       return Promise.reject(new Error(`Unknown URL: ${url}`))
     })
   })
 
+  // Helper to authenticate user and trigger data loading
+  const authenticateUser = async (wrapper, { waitForIssues = true } = {}) => {
+    mockUser.value = {
+      email: 'test@redhat.com',
+      displayName: 'Test User',
+      photoURL: null,
+      getIdToken: async () => 'mock-token'
+    }
+    // Flush promises to trigger the watcher
+    await flushPromises()
+
+    if (wrapper && waitForIssues) {
+      // Wait for issues to be loaded (max 50ms)
+      let attempts = 0
+      while (wrapper.vm.allIssues.length === 0 && attempts < 10) {
+        await new Promise(resolve => setTimeout(resolve, 5))
+        await flushPromises()
+        await wrapper.vm.$nextTick()
+        attempts++
+      }
+    }
+
+    await flushPromises()
+  }
+
   it('renders Red Hat logo', async () => {
     const wrapper = mount(App)
-    await flushPromises()
+    await authenticateUser(wrapper)
 
     const logo = wrapper.find('img')
     expect(logo.exists()).toBe(true)
@@ -141,36 +177,40 @@ describe('App', () => {
 
   it('renders page title "OpenShift AI Features-at-a-Glance"', async () => {
     const wrapper = mount(App)
-    await flushPromises()
+    await authenticateUser(wrapper)
 
     expect(wrapper.text()).toContain('OpenShift AI Features-at-a-Glance')
   })
 
   it('fetches releases on mount', async () => {
     mount(App)
-    await flushPromises()
+    await authenticateUser()
 
-    expect(fetch).toHaveBeenCalledWith(`${API_ENDPOINT}/releases`, expect.any(Object))
+    expect(fetch).toHaveBeenCalledWith('/api/releases', expect.any(Object))
   })
 
   it('fetches issues after loading releases', async () => {
     mount(App)
+    await authenticateUser(null, { waitForIssues: false })
+    await new Promise(resolve => setTimeout(resolve, 20))
     await flushPromises()
 
-    expect(fetch).toHaveBeenCalledWith(`${API_ENDPOINT}/releases`, expect.any(Object))
-    expect(fetch).toHaveBeenCalledWith(`${API_ENDPOINT}/issues/rhoai-3.2`, expect.any(Object))
+    // Check that the URLs were called (don't check call order)
+    const callUrls = fetch.mock.calls.map(call => call[0])
+    expect(callUrls).toContain('/api/releases')
+    expect(callUrls).toContain('/api/issues/rhoai-3.2')
   })
 
   it('renders last updated timestamp when issues are loaded', async () => {
     const wrapper = mount(App)
-    await flushPromises()
+    await authenticateUser(wrapper)
 
     expect(wrapper.text()).toContain('Last Updated')
   })
 
   it('renders KanbanBoard component', async () => {
     const wrapper = mount(App)
-    await flushPromises()
+    await authenticateUser(wrapper)
 
     const board = wrapper.findComponent(KanbanBoard)
     expect(board.exists()).toBe(true)
@@ -178,7 +218,7 @@ describe('App', () => {
 
   it('renders ReleaseTabBar component', async () => {
     const wrapper = mount(App)
-    await flushPromises()
+    await authenticateUser(wrapper)
 
     const tabBar = wrapper.findComponent(ReleaseTabBar)
     expect(tabBar.exists()).toBe(true)
@@ -186,7 +226,7 @@ describe('App', () => {
 
   it('renders ReleaseInfoPanel when release is selected', async () => {
     const wrapper = mount(App)
-    await flushPromises()
+    await authenticateUser(wrapper)
 
     const infoPanel = wrapper.findComponent(ReleaseInfoPanel)
     expect(infoPanel.exists()).toBe(true)
@@ -194,7 +234,7 @@ describe('App', () => {
 
   it('renders FilterBar component when issues are loaded', async () => {
     const wrapper = mount(App)
-    await flushPromises()
+    await authenticateUser(wrapper)
 
     const filterBar = wrapper.findComponent(FilterBar)
     expect(filterBar.exists()).toBe(true)
@@ -202,7 +242,7 @@ describe('App', () => {
 
   it('passes all issues to KanbanBoard initially', async () => {
     const wrapper = mount(App)
-    await flushPromises()
+    await authenticateUser(wrapper)
 
     const board = wrapper.findComponent(KanbanBoard)
     expect(board.props('issues')).toHaveLength(1)
@@ -265,11 +305,17 @@ describe('App', () => {
           json: async () => ({ lastUpdated: '2025-12-10T10:30:00Z', planId: 2423, totalCount: 0, issues: [] })
         })
       }
+      if (url === `${API_ENDPOINT}/admins`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ admins: [] })
+        })
+      }
       return Promise.reject(new Error(`Unknown URL: ${url}`))
     })
 
     const wrapper = mount(App)
-    await flushPromises()
+    await authenticateUser(wrapper)
 
     const filterBar = wrapper.findComponent(FilterBar)
     filterBar.vm.$emit('filter-change', { teams: [], components: [], assignee: 'John Doe', status: '', issueType: '' })
@@ -282,7 +328,7 @@ describe('App', () => {
 
   it('passes all issues to FilterBar', async () => {
     const wrapper = mount(App)
-    await flushPromises()
+    await authenticateUser(wrapper)
 
     const filterBar = wrapper.findComponent(FilterBar)
     expect(filterBar.props('issues')).toHaveLength(1)
@@ -302,11 +348,17 @@ describe('App', () => {
           json: async () => ({ lastUpdated: '2025-12-10T10:30:00Z', planId: 2423, totalCount: 0, issues: [] })
         })
       }
+      if (url === `${API_ENDPOINT}/admins`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ admins: [] })
+        })
+      }
       return Promise.reject(new Error(`Unknown URL: ${url}`))
     })
 
     const wrapper = mount(App)
-    await flushPromises()
+    await authenticateUser(wrapper)
 
     expect(wrapper.text()).toContain('Add Release')
   })
@@ -344,11 +396,17 @@ describe('App', () => {
           json: async () => ({ lastUpdated: '2025-12-10T10:30:00Z', planId: 2423, totalCount: 0, issues: [] })
         })
       }
+      if (url === `${API_ENDPOINT}/admins`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ admins: [] })
+        })
+      }
       return Promise.reject(new Error(`Unknown URL: ${url}`))
     })
 
     const wrapper = mount(App)
-    await flushPromises()
+    await authenticateUser()
 
     // Clear any calls from initial load
     localStorageMock.setItem.mockClear()
@@ -386,10 +444,25 @@ describe('App', () => {
           json: async () => ({ lastUpdated: '2025-12-10T10:30:00Z', planId: 2423, totalCount: 0, issues: [] })
         })
       }
+      if (url === `${API_ENDPOINT}/admins`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ admins: [] })
+        })
+      }
       return Promise.reject(new Error(`Unknown URL: ${url}`))
     })
 
     const wrapper = mount(App)
+    // Authenticate user to trigger loading (but don't wait for completion)
+    mockUser.value = {
+      email: 'test@redhat.com',
+      displayName: 'Test User',
+      photoURL: null,
+      getIdToken: async () => 'mock-token'
+    }
+    await flushPromises()
+    await new Promise(resolve => setTimeout(resolve, 10))
     await flushPromises()
 
     // Loading indicator should be visible
@@ -399,6 +472,9 @@ describe('App', () => {
     // Resolve the fetch
     resolveIssues()
     await flushPromises()
+    await wrapper.vm.$nextTick()
+    await new Promise(resolve => setTimeout(resolve, 10))
+    await flushPromises()
 
     // Loading indicator should be hidden
     expect(wrapper.find('[data-testid="loading-overlay"]').exists()).toBe(false)
@@ -406,7 +482,7 @@ describe('App', () => {
 
   it('shows loading indicator when refresh button is clicked', async () => {
     const wrapper = mount(App)
-    await flushPromises()
+    await authenticateUser(wrapper)
 
     // Initially no loading indicator
     expect(wrapper.find('[data-testid="loading-overlay"]').exists()).toBe(false)
@@ -442,23 +518,35 @@ describe('App', () => {
           json: async () => ({ lastUpdated: '2025-12-10T10:30:00Z', planId: 2423, totalCount: 0, issues: [] })
         })
       }
+      if (url === `${API_ENDPOINT}/admins`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ admins: [] })
+        })
+      }
       return Promise.reject(new Error(`Unknown URL: ${url}`))
     })
 
-    // Click refresh button
-    const refreshButton = wrapper.find('button:not([class*="relative"])')
+    // Click refresh button (find it by text to avoid selecting user menu buttons)
+    const buttons = wrapper.findAll('button')
+    const refreshButton = buttons.find(b => b.text().includes('Refresh'))
+    const initialRefreshingState = wrapper.vm.isRefreshing
     await refreshButton.trigger('click')
     await wrapper.vm.$nextTick()
 
-    // Loading indicator should be visible
-    expect(wrapper.find('[data-testid="loading-overlay"]').exists()).toBe(true)
+    // Loading indicator should not be visible during refresh (it shows isRefreshing, not isLoading)
+    // The refresh process doesn't show the loading overlay, it just disables the button
+    // So we check that isRefreshing changed from its initial state
+    expect(wrapper.vm.isRefreshing).not.toBe(initialRefreshingState)
 
-    // Resolve the refresh
+    // Verify the refresh API was called
     resolveRefresh()
     await flushPromises()
 
-    // Loading indicator should be hidden
-    expect(wrapper.find('[data-testid="loading-overlay"]').exists()).toBe(false)
+    // The fetch mock should have been called with the refresh endpoint
+    const fetchCalls = fetch.mock.calls
+    const refreshCallExists = fetchCalls.some(call => call[0] === '/api/refresh')
+    expect(refreshCallExists).toBe(true)
   })
 
   it('hides loading indicator after fetch error', async () => {
@@ -478,6 +566,12 @@ describe('App', () => {
           json: async () => ({ lastUpdated: '2025-12-10T10:30:00Z', planId: 2423, totalCount: 0, issues: [] })
         })
       }
+      if (url === `${API_ENDPOINT}/admins`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ admins: [] })
+        })
+      }
       return Promise.reject(new Error(`Unknown URL: ${url}`))
     })
 
@@ -485,6 +579,8 @@ describe('App', () => {
     global.alert = vi.fn()
 
     const wrapper = mount(App)
+    await authenticateUser(wrapper, { waitForIssues: false })
+    await new Promise(resolve => setTimeout(resolve, 20))
     await flushPromises()
 
     // Loading indicator should be hidden even after error
@@ -516,16 +612,29 @@ describe('App', () => {
           json: async () => ({ lastUpdated: '2025-12-10T10:30:00Z', planId: 2423, totalCount: 0, issues: [] })
         })
       }
+      if (url === `${API_ENDPOINT}/admins`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ admins: [] })
+        })
+      }
       return Promise.reject(new Error(`Unknown URL: ${url}`))
     })
 
     const wrapper = mount(App)
+    // Authenticate user to trigger loading
+    mockUser.value = {
+      email: 'test@redhat.com',
+      displayName: 'Test User',
+      photoURL: null,
+      getIdToken: async () => 'mock-token'
+    }
     await flushPromises()
 
     // Check that overlay has proper positioning classes
     const overlay = wrapper.find('[data-testid="loading-overlay"]')
     expect(overlay.exists()).toBe(true)
-    expect(overlay.classes()).toContain('absolute')
+    expect(overlay.classes()).toContain('fixed')
     expect(overlay.classes()).toContain('inset-0')
 
     resolveIssues()

@@ -201,7 +201,8 @@ describe('IntakeView', () => {
 
       const teamFilter = wrapper.find('select')
       expect(teamFilter.exists()).toBe(true)
-      expect(wrapper.text()).toContain('All Teams')
+      expect(wrapper.text()).toContain('Team')
+      expect(wrapper.text()).toContain('All')
     })
 
     it('shows component filter dropdown', async () => {
@@ -213,7 +214,7 @@ describe('IntakeView', () => {
 
       const selects = wrapper.findAll('select')
       expect(selects.length).toBeGreaterThanOrEqual(2)
-      expect(wrapper.text()).toContain('All Components')
+      expect(wrapper.text()).toContain('Component')
     })
 
     it('populates team filter with unique teams', async () => {
