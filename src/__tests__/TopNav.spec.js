@@ -6,7 +6,7 @@ import { mount } from '@vue/test-utils'
 import TopNav from '../components/TopNav.vue'
 
 describe('TopNav', () => {
-  it('renders all three navigation tabs', () => {
+  it('renders all navigation tabs', () => {
     const wrapper = mount(TopNav, {
       props: {
         currentView: 'release-tracking'
@@ -14,7 +14,7 @@ describe('TopNav', () => {
     })
 
     const buttons = wrapper.findAll('button')
-    expect(buttons).toHaveLength(5)
+    expect(buttons).toHaveLength(6)
 
     const buttonTexts = buttons.map(btn => btn.text())
     expect(buttonTexts).toContain('Release Tracking')
@@ -22,6 +22,7 @@ describe('TopNav', () => {
     expect(buttonTexts).toContain('Feature Roadmap')
     expect(buttonTexts).toContain('Priority View')
     expect(buttonTexts.some(text => text.includes('Hygiene Enforcement'))).toBe(true)
+    expect(buttonTexts.some(text => text.includes('Productivity'))).toBe(true)
   })
 
   it('highlights the current view tab', () => {

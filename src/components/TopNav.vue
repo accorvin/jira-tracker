@@ -39,6 +39,7 @@ const tabs = [
   { id: 'feature-intake', label: 'Feature Intake', badge: 'Beta' },
   { id: 'roadmap', label: 'Feature Roadmap' },
   { id: 'priority', label: 'Priority View' },
-  { id: 'hygiene', label: 'Hygiene Enforcement', badge: 'New' }
+  { id: 'hygiene', label: 'Hygiene Enforcement', badge: 'New' },
+  { id: 'productivity', label: 'Productivity', badge: 'Beta' }
 ]
 </script>

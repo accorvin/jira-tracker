@@ -570,3 +570,70 @@ export async function dismissProposals(proposalIds) {
     throw error;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Productivity Tracking API
+// ---------------------------------------------------------------------------
+
+/**
+ * Get list of teams for productivity tracking
+ * @returns {Promise<{teams: Array<{name: string, displayName: string, engineerCount: number}>}>}
+ */
+export async function getProductivityTeams() {
+  try {
+    const token = await getAuthToken();
+
+    const response = await fetch(`${API_ENDPOINT}/productivity/teams`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 401) throw new Error('Authentication failed. Please sign in again.');
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Get productivity teams error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get productivity data for a team
+ * @param {string} team - Team name (e.g., 'AIP AI Pipelines')
+ * @param {string} period - Time period: 'weekly', 'monthly', or 'quarterly'
+ * @returns {Promise<{team: string, period: string, startDate: string, endDate: string, engineers: Array}>}
+ */
+export async function getProductivityData(team, period) {
+  try {
+    const token = await getAuthToken();
+
+    const url = new URL(`${API_ENDPOINT}/productivity`);
+    url.searchParams.set('team', team);
+    url.searchParams.set('period', period);
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 401) throw new Error('Authentication failed. Please sign in again.');
+      if (response.status === 404) throw new Error(errorData.error || 'Team not found');
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Get productivity data error:', error);
+    throw error;
+  }
+}

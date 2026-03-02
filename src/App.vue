@@ -172,6 +172,12 @@
       v-else-if="currentView === 'hygiene'"
     />
 
+    <!-- Productivity View -->
+    <ProductivityView
+      v-else-if="currentView === 'productivity'"
+      :isRefreshing="isRefreshing"
+    />
+
     <ReleaseModal
       :show="showReleaseModal"
       :release="editingRelease"
@@ -208,6 +214,7 @@ import IntakeView from './components/IntakeView.vue'
 import RoadmapView from './components/RoadmapView.vue'
 import PriorityView from './components/PriorityView.vue'
 import HygieneEnforcementView from './components/HygieneEnforcementView.vue'
+import ProductivityView from './components/ProductivityView.vue'
 import KanbanBoard from './components/KanbanBoard.vue'
 import FilterBar from './components/FilterBar.vue'
 import ReleaseTabBar from './components/ReleaseTabBar.vue'
@@ -231,6 +238,7 @@ export default {
     RoadmapView,
     PriorityView,
     HygieneEnforcementView,
+    ProductivityView,
     KanbanBoard,
     FilterBar,
     ReleaseTabBar,
