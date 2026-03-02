@@ -381,6 +381,234 @@ function buildRfeFields() {
   return ['key', 'summary', 'status', 'components', 'reporter', 'assignee'].join(',');
 }
 
+/**
+ * Build JQL for productivity tracking queries
+ * @param {Array<string>} engineerNames - List of engineer display names
+ * @param {string} startDate - Start date in YYYY-MM-DD format
+ * @returns {string} JQL query
+ */
+function buildProductivityJql(engineerNames, startDate) {
+  // Escape quotes in names and wrap in quotes
+  const escapedNames = engineerNames.map(name => {
+    const escaped = name.replace(/"/g, '\\"');
+    return `"${escaped}"`;
+  });
+
+  const assigneeFilter = `assignee IN (${escapedNames.join(', ')})`;
+  const projectFilter = 'project IN (RHOAIENG, RHAISTRAT)';
+  const resolutionFilter = 'resolution = Done';
+  const dateFilter = `resolved >= "${startDate}"`;
+
+  return `${projectFilter} AND ${assigneeFilter} AND ${resolutionFilter} AND ${dateFilter}`;
+}
+
+/**
+ * Calculate cycle time for an issue (created -> resolved)
+ * @param {Object} issue - Jira issue object
+ * @returns {number|null} Cycle time in days, or null if not resolved
+ */
+function calculateCycleTime(issue) {
+  const created = issue.fields.created;
+  const resolved = issue.fields.resolved;
+
+  if (!resolved) {
+    return null;
+  }
+
+  const createdDate = new Date(created);
+  const resolvedDate = new Date(resolved);
+
+  const diffMs = resolvedDate - createdDate;
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+  return diffDays;
+}
+
+/**
+ * Get the start of week for a given date (Monday)
+ * @param {Date} date
+ * @returns {Date}
+ */
+function getWeekStart(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Monday start
+  return new Date(d.setDate(diff));
+}
+
+/**
+ * Get the start of month for a given date
+ * @param {Date} date
+ * @returns {Date}
+ */
+function getMonthStart(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+/**
+ * Get the start of quarter for a given date
+ * @param {Date} date
+ * @returns {Date}
+ */
+function getQuarterStart(date) {
+  const month = date.getMonth();
+  const quarterStartMonth = Math.floor(month / 3) * 3;
+  return new Date(date.getFullYear(), quarterStartMonth, 1);
+}
+
+/**
+ * Format date as YYYY-MM-DD
+ * @param {Date} date
+ * @returns {string}
+ */
+function formatDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Get period bucket key for an issue
+ * @param {Date} resolvedDate
+ * @param {string} period - 'weekly' | 'monthly' | 'quarterly'
+ * @returns {string} Bucket key
+ */
+function getPeriodBucket(resolvedDate, period) {
+  const d = new Date(resolvedDate);
+
+  if (period === 'weekly') {
+    const weekStart = getWeekStart(d);
+    return `Week of ${formatDate(weekStart)}`;
+  } else if (period === 'monthly') {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+  } else if (period === 'quarterly') {
+    const quarter = Math.floor(d.getMonth() / 3) + 1;
+    return `Q${quarter} ${d.getFullYear()}`;
+  }
+
+  return 'Unknown';
+}
+
+/**
+ * Aggregate issues by engineer and time period
+ * @param {Array} issues - Raw Jira issues
+ * @param {string} period - 'weekly' | 'monthly' | 'quarterly'
+ * @returns {Object} Map of engineer name to aggregated data
+ */
+function aggregateByPeriod(issues, period) {
+  const engineerData = {};
+
+  for (const issue of issues) {
+    const engineerName = issue.fields.assignee?.displayName;
+    if (!engineerName) continue;
+
+    // Initialize engineer data if not exists
+    if (!engineerData[engineerName]) {
+      engineerData[engineerName] = {
+        name: engineerName,
+        totalIssuesResolved: 0,
+        totalStoryPoints: 0,
+        cycleTimes: [],
+        breakdown: {}
+      };
+    }
+
+    const engineer = engineerData[engineerName];
+    const resolvedDate = issue.fields.resolved;
+    const cycleTime = calculateCycleTime(issue);
+
+    // Aggregate totals
+    engineer.totalIssuesResolved++;
+    if (cycleTime !== null) {
+      engineer.cycleTimes.push(cycleTime);
+    }
+
+    // Story points (if available) - check common custom fields
+    const storyPoints = issue.fields.customfield_12310243 ||
+                       issue.fields.customfield_12310920 ||
+                       issue.fields.storyPoints;
+    if (storyPoints) {
+      engineer.totalStoryPoints += Number(storyPoints);
+    }
+
+    // Breakdown by period
+    if (resolvedDate) {
+      const bucket = getPeriodBucket(resolvedDate, period);
+      if (!engineer.breakdown[bucket]) {
+        engineer.breakdown[bucket] = {
+          period: bucket,
+          startDate: null,
+          issuesResolved: 0,
+          storyPoints: 0,
+          cycleTimes: []
+        };
+      }
+
+      const bucketData = engineer.breakdown[bucket];
+      bucketData.issuesResolved++;
+      if (storyPoints) {
+        bucketData.storyPoints += Number(storyPoints);
+      }
+      if (cycleTime !== null) {
+        bucketData.cycleTimes.push(cycleTime);
+      }
+
+      // Set start date for bucket
+      if (!bucketData.startDate) {
+        const d = new Date(resolvedDate);
+        if (period === 'weekly') {
+          bucketData.startDate = formatDate(getWeekStart(d));
+        } else if (period === 'monthly') {
+          bucketData.startDate = formatDate(getMonthStart(d));
+        } else if (period === 'quarterly') {
+          bucketData.startDate = formatDate(getQuarterStart(d));
+        }
+      }
+    }
+  }
+
+  // Convert breakdown to arrays and calculate averages
+  for (const engineerName in engineerData) {
+    const engineer = engineerData[engineerName];
+
+    // Calculate average cycle time
+    if (engineer.cycleTimes.length > 0) {
+      const sum = engineer.cycleTimes.reduce((a, b) => a + b, 0);
+      engineer.avgCycleTimeDays = sum / engineer.cycleTimes.length;
+    } else {
+      engineer.avgCycleTimeDays = null;
+    }
+    delete engineer.cycleTimes;
+
+    // Convert breakdown to array and calculate bucket averages
+    const breakdownArray = Object.values(engineer.breakdown).map(bucket => {
+      const avgCycleTime = bucket.cycleTimes.length > 0
+        ? bucket.cycleTimes.reduce((a, b) => a + b, 0) / bucket.cycleTimes.length
+        : null;
+
+      return {
+        period: bucket.period,
+        startDate: bucket.startDate,
+        issuesResolved: bucket.issuesResolved,
+        storyPoints: bucket.storyPoints,
+        avgCycleTimeDays: avgCycleTime
+      };
+    });
+
+    // Sort by start date
+    breakdownArray.sort((a, b) => {
+      if (!a.startDate || !b.startDate) return 0;
+      return new Date(a.startDate) - new Date(b.startDate);
+    });
+
+    engineer.breakdown = breakdownArray;
+  }
+
+  return engineerData;
+}
+
 module.exports = {
   JIRA_HOST,
   PLAN_ID,
@@ -403,5 +631,8 @@ module.exports = {
   transformIntakeFeature,
   buildIssueFields,
   buildIntakeFields,
-  buildPlanFields
+  buildPlanFields,
+  buildProductivityJql,
+  calculateCycleTime,
+  aggregateByPeriod
 };
