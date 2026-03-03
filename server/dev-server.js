@@ -23,10 +23,19 @@ const {
   buildIntakeFields,
   buildPlanFields,
   buildProductivityJql,
-  calculateCycleTime,
+  calculateCycleTime: _calculateCycleTime,
   aggregateByPeriod,
   getPeriodBucket
 } = require('../amplify/backend/function/jiraFetcher/src/shared/jira-helpers');
+
+// Wrap calculateCycleTime to handle Jira's 'resolutiondate' field (API returns this, not 'resolved')
+function calculateCycleTime(issue) {
+  const created = issue.fields.created;
+  const resolved = issue.fields.resolutiondate || issue.fields.resolved;
+  if (!resolved) return null;
+  const diffMs = new Date(resolved) - new Date(created);
+  return diffMs / (1000 * 60 * 60 * 24);
+}
 
 const { evaluateHygiene, getEnforceableRules } = require('../amplify/backend/function/jiraFetcher/src/shared/hygieneRules.cjs');
 const { processViolations } = require('../amplify/backend/function/jiraFetcher/src/shared/enforcementLogic.cjs');
