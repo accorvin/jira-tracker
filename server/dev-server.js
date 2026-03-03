@@ -25,7 +25,11 @@ const {
   buildProductivityJql,
   calculateCycleTime: _calculateCycleTime,
   aggregateByPeriod,
-  getPeriodBucket
+  getPeriodBucket,
+  buildWipJql,
+  buildFeatureDeliveryJql,
+  calculateTypeBreakdown,
+  calculateDaysInProgress: _calculateDaysInProgress
 } = require('../amplify/backend/function/jiraFetcher/src/shared/jira-helpers');
 
 // Calculate cycle time using changelog (In Progress → Resolved) when available,
@@ -54,6 +58,12 @@ function calculateCycleTime(issue) {
   const startDate = firstInProgressDate || new Date(issue.fields.created);
   const diffMs = resolvedDate - startDate;
   return diffMs / (1000 * 60 * 60 * 24);
+}
+
+// Calculate days in progress using changelog (first In Progress transition) when available,
+// falling back to created date if no status transitions found.
+function calculateDaysInProgress(issue) {
+  return _calculateDaysInProgress(issue, true); // Use changelog
 }
 
 const { evaluateHygiene, getEnforceableRules } = require('../amplify/backend/function/jiraFetcher/src/shared/hygieneRules.cjs');
@@ -720,10 +730,58 @@ app.get('/api/productivity', async function(req, res) {
     const jql = buildProductivityJql(memberNames, startDateStr);
 
     // Fetch issues from Jira (with changelog for accurate cycle time)
-    const fields = 'key,assignee,created,resolutiondate,customfield_12310243,customfield_12310920,storyPoints';
+    const fields = 'key,assignee,created,resolutiondate,issuetype,customfield_12310243,customfield_12310920,storyPoints';
     const issues = await fetchPaginated(jql, fields, { expand: 'changelog' });
 
     console.log(`Fetched ${issues.length} resolved issues for team ${team}`);
+
+    // Fetch WIP issues (current in-progress work)
+    const wipJql = buildWipJql(memberNames);
+    const wipFields = 'key,summary,assignee,status,created';
+    const wipIssues = await fetchPaginated(wipJql, wipFields);
+    console.log(`Fetched ${wipIssues.length} WIP issues for team ${team}`);
+
+    // Fetch RHAISTRAT features delivered
+    const featuresJql = buildFeatureDeliveryJql(memberNames, startDateStr);
+    const featuresFields = 'key,summary,assignee,resolutiondate';
+    const featureIssues = await fetchPaginated(featuresJql, featuresFields);
+    console.log(`Fetched ${featureIssues.length} RHAISTRAT features for team ${team}`);
+
+    // Calculate headcount
+    const headcount = memberNames.length;
+
+    // Calculate type breakdown for resolved issues
+    const { typeBreakdown, bugToFeatureRatio } = calculateTypeBreakdown(issues);
+
+    // Calculate total metrics across all members
+    let totalIssues = issues.length;
+    let totalStoryPoints = 0;
+    for (const issue of issues) {
+      const storyPoints = issue.fields.customfield_12310243 ||
+                         issue.fields.customfield_12310920 ||
+                         issue.fields.storyPoints || 0;
+      totalStoryPoints += Number(storyPoints);
+    }
+
+    // Calculate normalized per-capita metrics
+    const normalized = {
+      issuesPerCapita: headcount > 0 ? totalIssues / headcount : 0,
+      storyPointsPerCapita: headcount > 0 ? totalStoryPoints / headcount : 0
+    };
+
+    // Calculate WIP by member
+    const wipByMember = {};
+    for (const issue of wipIssues) {
+      const assignee = issue.fields.assignee?.displayName;
+      if (assignee) {
+        wipByMember[assignee] = (wipByMember[assignee] || 0) + 1;
+      }
+    }
+
+    const wipByMemberArray = Object.entries(wipByMember).map(([name, count]) => ({
+      name,
+      count
+    }));
 
     // Aggregate by member and period
     const aggregated = aggregateByPeriod(issues, period);
@@ -741,6 +799,20 @@ app.get('/api/productivity', async function(req, res) {
       period,
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
+      headcount,
+      normalized,
+      typeBreakdown,
+      bugToFeatureRatio,
+      wipCount: wipIssues.length,
+      wipByMember: wipByMemberArray,
+      features: {
+        delivered: featureIssues.length,
+        list: featureIssues.map(f => ({
+          key: f.key,
+          summary: f.fields.summary,
+          resolved: f.fields.resolutiondate
+        }))
+      },
       members
     });
 
@@ -825,10 +897,25 @@ app.get('/api/productivity/member/:name', async function(req, res) {
     const jql = buildProductivityJql([foundMember.jiraDisplayName], startDateStr);
 
     // Fetch issues from Jira (include summary field + changelog for cycle time)
-    const fields = 'key,summary,assignee,created,resolutiondate,customfield_12310243,customfield_12310920,storyPoints';
+    const fields = 'key,summary,assignee,created,resolutiondate,issuetype,customfield_12310243,customfield_12310920,storyPoints';
     const issues = await fetchPaginated(jql, fields, { expand: 'changelog' });
 
     console.log(`Fetched ${issues.length} resolved issues for member ${name}`);
+
+    // Fetch WIP issues for this member (with changelog for accurate daysInProgress)
+    const wipJql = buildWipJql([foundMember.jiraDisplayName]);
+    const wipFields = 'key,summary,assignee,status,created';
+    const wipIssues = await fetchPaginated(wipJql, wipFields, { expand: 'changelog' });
+    console.log(`Fetched ${wipIssues.length} WIP issues for member ${name}`);
+
+    // Fetch RHAISTRAT features delivered by this member
+    const featuresJql = buildFeatureDeliveryJql([foundMember.jiraDisplayName], startDateStr);
+    const featuresFields = 'key,summary,assignee,resolutiondate';
+    const featureIssues = await fetchPaginated(featuresJql, featuresFields);
+    console.log(`Fetched ${featureIssues.length} RHAISTRAT features for member ${name}`);
+
+    // Calculate type breakdown for resolved issues
+    const { typeBreakdown, bugToFeatureRatio } = calculateTypeBreakdown(issues);
 
     // Calculate summary statistics
     let totalIssuesResolved = issues.length;
@@ -905,6 +992,15 @@ app.get('/api/productivity/member/:name', async function(req, res) {
       return new Date(b.resolved) - new Date(a.resolved);
     });
 
+    // Build WIP details with daysInProgress
+    const wipDetails = wipIssues.map(issue => ({
+      key: issue.key,
+      summary: issue.fields.summary,
+      status: issue.fields.status?.name || 'Unknown',
+      assignee: issue.fields.assignee?.displayName || 'Unknown',
+      daysInProgress: calculateDaysInProgress(issue)
+    }));
+
     res.json({
       member: {
         name: foundMember.name,
@@ -922,6 +1018,20 @@ app.get('/api/productivity/member/:name', async function(req, res) {
         totalIssuesResolved,
         totalStoryPoints,
         avgCycleTimeDays: avgCycleTimeDays !== null ? Math.round(avgCycleTimeDays * 10) / 10 : null
+      },
+      typeBreakdown,
+      bugToFeatureRatio,
+      wip: {
+        count: wipIssues.length,
+        issues: wipDetails
+      },
+      features: {
+        delivered: featureIssues.length,
+        list: featureIssues.map(f => ({
+          key: f.key,
+          summary: f.fields.summary,
+          resolved: f.fields.resolutiondate
+        }))
       },
       periodBreakdown,
       issues: issueDetails

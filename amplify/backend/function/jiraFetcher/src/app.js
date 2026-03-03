@@ -28,7 +28,11 @@ const {
   buildProductivityJql,
   calculateCycleTime,
   aggregateByPeriod,
-  getPeriodBucket
+  getPeriodBucket,
+  buildWipJql,
+  buildFeatureDeliveryJql,
+  calculateTypeBreakdown,
+  calculateDaysInProgress
 } = require('./shared/jira-helpers');
 
 const app = express();
@@ -84,6 +88,59 @@ async function getJiraToken() {
     console.error('Error fetching Jira token from SSM:', error);
     throw new Error(`Failed to fetch Jira token from SSM: ${error.message}`);
   }
+}
+
+/**
+ * Generic function to fetch issues from Jira with pagination
+ * @param {string} jql - JQL query string
+ * @param {string} fields - Comma-separated field list
+ * @param {Object} options - Optional expand, etc.
+ * @returns {Array} Array of issues
+ */
+async function fetchJiraIssues(jql, fields, options = {}) {
+  const jiraToken = await getJiraToken();
+  const issues = [];
+  let startAt = 0;
+  const maxResults = 100;
+
+  while (true) {
+    const url = new URL(`${JIRA_HOST}/rest/api/2/search`);
+    url.searchParams.set('jql', jql);
+    url.searchParams.set('startAt', startAt.toString());
+    url.searchParams.set('maxResults', maxResults.toString());
+    url.searchParams.set('fields', fields);
+    if (options.expand) {
+      url.searchParams.set('expand', options.expand);
+    }
+
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Authorization': `Bearer ${jiraToken}`,
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Jira API error (${response.status}): ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.issues || data.issues.length === 0) {
+      break;
+    }
+
+    issues.push(...data.issues);
+
+    if (data.issues.length < maxResults) {
+      break;
+    }
+
+    startAt += maxResults;
+  }
+
+  return issues;
 }
 
 /**
@@ -678,7 +735,7 @@ app.get('/productivity', async function(req, res) {
       url.searchParams.set('jql', jql);
       url.searchParams.set('startAt', startAt.toString());
       url.searchParams.set('maxResults', maxResults.toString());
-      url.searchParams.set('fields', 'key,assignee,created,resolved,customfield_12310243,customfield_12310920,storyPoints');
+      url.searchParams.set('fields', 'key,assignee,created,resolved,issuetype,customfield_12310243,customfield_12310920,storyPoints');
 
       const response = await fetch(url.toString(), {
         headers: {
@@ -709,6 +766,52 @@ app.get('/productivity', async function(req, res) {
 
     console.log(`Fetched ${issues.length} resolved issues for team ${team}`);
 
+    // Fetch WIP issues (current in-progress work)
+    const wipJql = buildWipJql(memberNames);
+    const wipIssues = await fetchJiraIssues(wipJql, 'key,summary,assignee,status,created');
+    console.log(`Fetched ${wipIssues.length} WIP issues for team ${team}`);
+
+    // Fetch RHAISTRAT features delivered
+    const featuresJql = buildFeatureDeliveryJql(memberNames, startDateStr);
+    const featureIssues = await fetchJiraIssues(featuresJql, 'key,summary,assignee,resolved');
+    console.log(`Fetched ${featureIssues.length} RHAISTRAT features for team ${team}`);
+
+    // Calculate headcount
+    const headcount = memberNames.length;
+
+    // Calculate type breakdown for resolved issues
+    const { typeBreakdown, bugToFeatureRatio } = calculateTypeBreakdown(issues);
+
+    // Calculate total metrics across all members
+    let totalIssues = issues.length;
+    let totalStoryPoints = 0;
+    for (const issue of issues) {
+      const storyPoints = issue.fields.customfield_12310243 ||
+                         issue.fields.customfield_12310920 ||
+                         issue.fields.storyPoints || 0;
+      totalStoryPoints += Number(storyPoints);
+    }
+
+    // Calculate normalized per-capita metrics
+    const normalized = {
+      issuesPerCapita: headcount > 0 ? totalIssues / headcount : 0,
+      storyPointsPerCapita: headcount > 0 ? totalStoryPoints / headcount : 0
+    };
+
+    // Calculate WIP by member
+    const wipByMember = {};
+    for (const issue of wipIssues) {
+      const assignee = issue.fields.assignee?.displayName;
+      if (assignee) {
+        wipByMember[assignee] = (wipByMember[assignee] || 0) + 1;
+      }
+    }
+
+    const wipByMemberArray = Object.entries(wipByMember).map(([name, count]) => ({
+      name,
+      count
+    }));
+
     // Aggregate by member and period
     const aggregated = aggregateByPeriod(issues, period);
 
@@ -725,6 +828,20 @@ app.get('/productivity', async function(req, res) {
       period,
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
+      headcount,
+      normalized,
+      typeBreakdown,
+      bugToFeatureRatio,
+      wipCount: wipIssues.length,
+      wipByMember: wipByMemberArray,
+      features: {
+        delivered: featureIssues.length,
+        list: featureIssues.map(f => ({
+          key: f.key,
+          summary: f.fields.summary,
+          resolved: f.fields.resolved
+        }))
+      },
       members
     });
 
@@ -816,7 +933,7 @@ app.get('/productivity/member/:name', async function(req, res) {
       url.searchParams.set('jql', jql);
       url.searchParams.set('startAt', startAt.toString());
       url.searchParams.set('maxResults', maxResults.toString());
-      url.searchParams.set('fields', 'key,summary,assignee,created,resolved,customfield_12310243,customfield_12310920,storyPoints');
+      url.searchParams.set('fields', 'key,summary,assignee,created,resolved,issuetype,customfield_12310243,customfield_12310920,storyPoints');
 
       const response = await fetch(url.toString(), {
         headers: {
@@ -846,6 +963,19 @@ app.get('/productivity/member/:name', async function(req, res) {
     }
 
     console.log(`Fetched ${issues.length} resolved issues for member ${name}`);
+
+    // Fetch WIP issues for this member
+    const wipJql = buildWipJql([foundMember.jiraDisplayName]);
+    const wipIssues = await fetchJiraIssues(wipJql, 'key,summary,assignee,status,created');
+    console.log(`Fetched ${wipIssues.length} WIP issues for member ${name}`);
+
+    // Fetch RHAISTRAT features delivered by this member
+    const featuresJql = buildFeatureDeliveryJql([foundMember.jiraDisplayName], startDateStr);
+    const featureIssues = await fetchJiraIssues(featuresJql, 'key,summary,assignee,resolved');
+    console.log(`Fetched ${featureIssues.length} RHAISTRAT features for member ${name}`);
+
+    // Calculate type breakdown for resolved issues
+    const { typeBreakdown, bugToFeatureRatio } = calculateTypeBreakdown(issues);
 
     // Calculate summary statistics
     let totalIssuesResolved = issues.length;
@@ -922,6 +1052,15 @@ app.get('/productivity/member/:name', async function(req, res) {
       return new Date(b.resolved) - new Date(a.resolved);
     });
 
+    // Build WIP details with daysInProgress (using created date in Lambda - simpler)
+    const wipDetails = wipIssues.map(issue => ({
+      key: issue.key,
+      summary: issue.fields.summary,
+      status: issue.fields.status?.name || 'Unknown',
+      assignee: issue.fields.assignee?.displayName || 'Unknown',
+      daysInProgress: calculateDaysInProgress(issue, false) // false = use created date, not changelog
+    }));
+
     res.json({
       member: {
         name: foundMember.name,
@@ -939,6 +1078,20 @@ app.get('/productivity/member/:name', async function(req, res) {
         totalIssuesResolved,
         totalStoryPoints,
         avgCycleTimeDays: avgCycleTimeDays !== null ? Math.round(avgCycleTimeDays * 10) / 10 : null
+      },
+      typeBreakdown,
+      bugToFeatureRatio,
+      wip: {
+        count: wipIssues.length,
+        issues: wipDetails
+      },
+      features: {
+        delivered: featureIssues.length,
+        list: featureIssues.map(f => ({
+          key: f.key,
+          summary: f.fields.summary,
+          resolved: f.fields.resolved
+        }))
       },
       periodBreakdown,
       issues: issueDetails
