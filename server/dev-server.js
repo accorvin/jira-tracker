@@ -692,7 +692,7 @@ app.get('/api/productivity', async function(req, res) {
     const jql = buildProductivityJql(memberNames, startDateStr);
 
     // Fetch issues from Jira
-    const fields = 'key,assignee,created,resolved,customfield_12310243,customfield_12310920,storyPoints';
+    const fields = 'key,assignee,created,resolutiondate,customfield_12310243,customfield_12310920,storyPoints';
     const issues = await fetchPaginated(jql, fields);
 
     console.log(`Fetched ${issues.length} resolved issues for team ${team}`);
@@ -797,7 +797,7 @@ app.get('/api/productivity/member/:name', async function(req, res) {
     const jql = buildProductivityJql([foundMember.jiraDisplayName], startDateStr);
 
     // Fetch issues from Jira (include summary field)
-    const fields = 'key,summary,assignee,created,resolved,customfield_12310243,customfield_12310920,storyPoints';
+    const fields = 'key,summary,assignee,created,resolutiondate,customfield_12310243,customfield_12310920,storyPoints';
     const issues = await fetchPaginated(jql, fields);
 
     console.log(`Fetched ${issues.length} resolved issues for member ${name}`);
@@ -827,14 +827,14 @@ app.get('/api/productivity/member/:name', async function(req, res) {
       issueDetails.push({
         key: issue.key,
         summary: issue.fields.summary,
-        resolved: issue.fields.resolved,
+        resolved: issue.fields.resolutiondate,
         storyPoints: Number(storyPoints),
         cycleTimeDays: cycleTime !== null ? Math.round(cycleTime * 10) / 10 : null
       });
 
       // Aggregate into period buckets
-      if (issue.fields.resolved) {
-        const bucket = getPeriodBucket(issue.fields.resolved, period);
+      if (issue.fields.resolutiondate) {
+        const bucket = getPeriodBucket(issue.fields.resolutiondate, period);
         if (!periodBuckets[bucket]) {
           periodBuckets[bucket] = {
             period: bucket,
