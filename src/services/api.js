@@ -607,15 +607,19 @@ export async function getProductivityTeams() {
  * Get productivity data for a team
  * @param {string} team - Team name (e.g., 'AIP AI Pipelines')
  * @param {string} period - Time period: 'weekly', 'monthly', or 'quarterly'
+ * @param {boolean} forceRefresh - If true, bypass cache and fetch fresh data
  * @returns {Promise<{team: string, period: string, startDate: string, endDate: string, engineers: Array}>}
  */
-export async function getProductivityData(team, period) {
+export async function getProductivityData(team, period, forceRefresh = false) {
   try {
     const token = await getAuthToken();
 
     const url = new URL(`${API_ENDPOINT}/productivity`);
     url.searchParams.set('team', team);
     url.searchParams.set('period', period);
+    if (forceRefresh) {
+      url.searchParams.set('refresh', 'true');
+    }
 
     const response = await fetch(url.toString(), {
       method: 'GET',
@@ -642,14 +646,18 @@ export async function getProductivityData(team, period) {
  * Get productivity data for an individual member
  * @param {string} name - Member name (jiraDisplayName or name from org-roster)
  * @param {string} period - Time period: 'weekly', 'monthly', or 'quarterly'
+ * @param {boolean} forceRefresh - If true, bypass cache and fetch fresh data
  * @returns {Promise<{member: Object, period: string, startDate: string, endDate: string, summary: Object, periodBreakdown: Array, issues: Array}>}
  */
-export async function getProductivityMember(name, period) {
+export async function getProductivityMember(name, period, forceRefresh = false) {
   try {
     const token = await getAuthToken();
 
     const url = new URL(`${API_ENDPOINT}/productivity/member/${encodeURIComponent(name)}`);
     url.searchParams.set('period', period);
+    if (forceRefresh) {
+      url.searchParams.set('refresh', 'true');
+    }
 
     const response = await fetch(url.toString(), {
       method: 'GET',
@@ -675,14 +683,18 @@ export async function getProductivityMember(name, period) {
 /**
  * Get productivity summary for all teams
  * @param {string} period - Time period: 'weekly', 'monthly', or 'quarterly'
+ * @param {boolean} forceRefresh - If true, bypass cache and fetch fresh data
  * @returns {Promise<{period: string, startDate: string, endDate: string, totals: Object, teams: Array}>}
  */
-export async function getProductivitySummary(period) {
+export async function getProductivitySummary(period, forceRefresh = false) {
   try {
     const token = await getAuthToken();
 
     const url = new URL(`${API_ENDPOINT}/productivity/summary`);
     url.searchParams.set('period', period);
+    if (forceRefresh) {
+      url.searchParams.set('refresh', 'true');
+    }
 
     const response = await fetch(url.toString(), {
       method: 'GET',
@@ -700,6 +712,63 @@ export async function getProductivitySummary(period) {
     return await response.json();
   } catch (error) {
     console.error('Get productivity summary error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Pre-warm all productivity caches for all teams and periods
+ * @returns {Promise<{started: string, completed: string, teams: number, periods: number, totalCaches: number, successCount: number, failedCount: number, cached: Array}>}
+ */
+export async function warmupProductivityCache() {
+  try {
+    const token = await getAuthToken();
+
+    const response = await fetch(`${API_ENDPOINT}/productivity/cache-warmup`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 401) throw new Error('Authentication failed. Please sign in again.');
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Warmup productivity cache error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get productivity cache status for all teams and periods
+ * @returns {Promise<{summary: Object, caches: Array}>}
+ */
+export async function getProductivityCacheStatus() {
+  try {
+    const token = await getAuthToken();
+
+    const response = await fetch(`${API_ENDPOINT}/productivity/cache-status`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 401) throw new Error('Authentication failed. Please sign in again.');
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Get productivity cache status error:', error);
     throw error;
   }
 }

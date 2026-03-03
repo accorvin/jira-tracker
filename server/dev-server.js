@@ -32,6 +32,74 @@ const {
   calculateDaysInProgress: _calculateDaysInProgress
 } = require('../amplify/backend/function/jiraFetcher/src/shared/jira-helpers');
 
+// ============================================================================
+// Productivity Data Caching
+// ============================================================================
+
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Generate cache key for productivity data
+ */
+function getProductivityCacheKey(type, params) {
+  if (type === 'productivity') {
+    return `productivity-cache-${params.team}-${params.period}.json`;
+  } else if (type === 'summary') {
+    return `productivity-cache-summary-${params.period}.json`;
+  } else if (type === 'member') {
+    return `productivity-cache-member-${params.name}-${params.period}.json`;
+  }
+  throw new Error(`Unknown cache type: ${type}`);
+}
+
+/**
+ * Check if cache entry is valid (not expired)
+ */
+function isProductivityCacheValid(cacheEntry) {
+  if (!cacheEntry || !cacheEntry.cachedAt) {
+    return false;
+  }
+  const age = Date.now() - new Date(cacheEntry.cachedAt).getTime();
+  return age < CACHE_TTL_MS;
+}
+
+/**
+ * Get cached productivity data if available and valid
+ */
+function getCachedProductivityData(type, params, forceRefresh = false) {
+  if (forceRefresh) {
+    return null;
+  }
+
+  const key = getProductivityCacheKey(type, params);
+  const cacheEntry = readFromStorage(key);
+
+  if (!isProductivityCacheValid(cacheEntry)) {
+    return null;
+  }
+
+  console.log(`[CACHE HIT] ${key}`);
+  return cacheEntry.data;
+}
+
+/**
+ * Store productivity data in cache
+ */
+function setCachedProductivityData(type, params, data) {
+  const key = getProductivityCacheKey(type, params);
+  const cacheEntry = {
+    cachedAt: new Date().toISOString(),
+    data
+  };
+
+  writeToStorage(key, cacheEntry);
+  console.log(`[CACHE WRITE] ${key}`);
+}
+
+// ============================================================================
+// End Productivity Data Caching
+// ============================================================================
+
 // Calculate cycle time using changelog (In Progress → Resolved) when available,
 // falling back to created → resolved if no status transitions found.
 function calculateCycleTime(issue) {
@@ -634,7 +702,7 @@ app.get('/api/productivity/teams', function(req, res) {
  */
 app.get('/api/productivity', async function(req, res) {
   try {
-    const { team, period } = req.query;
+    const { team, period, refresh } = req.query;
 
     // Validate parameters
     if (!team) {
@@ -647,6 +715,13 @@ app.get('/api/productivity', async function(req, res) {
       return res.status(400).json({
         error: 'Invalid or missing period. Must be: weekly, monthly, or quarterly'
       });
+    }
+
+    // Check cache first
+    const forceRefresh = refresh === 'true';
+    const cached = getCachedProductivityData('productivity', { team, period }, forceRefresh);
+    if (cached) {
+      return res.json(cached);
     }
 
     // Read org-roster.json from local filesystem
@@ -794,7 +869,7 @@ app.get('/api/productivity', async function(req, res) {
       team: memberMetadata[member.name]?.team || team
     }));
 
-    res.json({
+    const responseData = {
       team,
       period,
       startDate: startDate.toISOString(),
@@ -814,7 +889,12 @@ app.get('/api/productivity', async function(req, res) {
         }))
       },
       members
-    });
+    };
+
+    // Cache the response
+    setCachedProductivityData('productivity', { team, period }, responseData);
+
+    res.json(responseData);
 
   } catch (error) {
     console.error('Get productivity data error:', error);
@@ -831,13 +911,20 @@ app.get('/api/productivity', async function(req, res) {
 app.get('/api/productivity/member/:name', async function(req, res) {
   try {
     const { name } = req.params;
-    const { period } = req.query;
+    const { period, refresh } = req.query;
 
     // Validate period parameter
     if (!period || !['weekly', 'monthly', 'quarterly'].includes(period)) {
       return res.status(400).json({
         error: 'Invalid or missing period. Must be: weekly, monthly, or quarterly'
       });
+    }
+
+    // Check cache first
+    const forceRefresh = refresh === 'true';
+    const cached = getCachedProductivityData('member', { name, period }, forceRefresh);
+    if (cached) {
+      return res.json(cached);
     }
 
     // Read org-roster.json from local filesystem
@@ -1001,7 +1088,7 @@ app.get('/api/productivity/member/:name', async function(req, res) {
       daysInProgress: calculateDaysInProgress(issue)
     }));
 
-    res.json({
+    const responseData = {
       member: {
         name: foundMember.name,
         jiraDisplayName: foundMember.jiraDisplayName,
@@ -1035,7 +1122,12 @@ app.get('/api/productivity/member/:name', async function(req, res) {
       },
       periodBreakdown,
       issues: issueDetails
-    });
+    };
+
+    // Cache the response
+    setCachedProductivityData('member', { name, period }, responseData);
+
+    res.json(responseData);
 
   } catch (error) {
     console.error('Get member productivity data error:', error);
@@ -1052,13 +1144,20 @@ app.get('/api/productivity/member/:name', async function(req, res) {
  */
 app.get('/api/productivity/summary', async function(req, res) {
   try {
-    const { period } = req.query;
+    const { period, refresh } = req.query;
 
     // Validate period parameter
     if (!period || !['weekly', 'monthly', 'quarterly'].includes(period)) {
       return res.status(400).json({
         error: 'Invalid or missing period. Must be: weekly, monthly, or quarterly'
       });
+    }
+
+    // Check cache first
+    const forceRefresh = refresh === 'true';
+    const cached = getCachedProductivityData('summary', { period }, forceRefresh);
+    if (cached) {
+      return res.json(cached);
     }
 
     // Read org-roster.json from local filesystem
@@ -1270,7 +1369,7 @@ app.get('/api/productivity/summary', async function(req, res) {
     // Calculate overall bug-to-feature ratio from all resolved issues
     const { bugToFeatureRatio: overallBugToFeatureRatio } = calculateTypeBreakdown(resolvedIssues);
 
-    res.json({
+    const responseData = {
       period,
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
@@ -1287,12 +1386,172 @@ app.get('/api/productivity/summary', async function(req, res) {
         featuresDelivered: totalFeaturesDelivered
       },
       teams: teamsArray
-    });
+    };
+
+    // Cache the response
+    setCachedProductivityData('summary', { period }, responseData);
+
+    res.json(responseData);
 
   } catch (error) {
     console.error('Get productivity summary error:', error);
     res.status(500).json({
       error: error.message || 'Failed to fetch productivity summary'
+    });
+  }
+});
+
+/**
+ * POST /api/productivity/cache-warmup
+ * Pre-warm all productivity caches for all teams and periods
+ */
+app.post('/api/productivity/cache-warmup', async function(req, res) {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const orgRosterPath = path.join(__dirname, '../src/data/org-roster.json');
+
+    if (!fs.existsSync(orgRosterPath)) {
+      return res.status(404).json({
+        error: 'Org roster data not found. Please ensure src/data/org-roster.json exists.'
+      });
+    }
+
+    const orgRoster = JSON.parse(fs.readFileSync(orgRosterPath, 'utf-8'));
+    const teams = Object.keys(orgRoster.teams || {});
+    const periods = ['weekly', 'monthly', 'quarterly'];
+
+    const results = {
+      started: new Date().toISOString(),
+      teams: teams.length,
+      periods: periods.length,
+      totalCaches: teams.length * periods.length + periods.length, // team caches + summary caches
+      cached: []
+    };
+
+    // Warm up team caches
+    for (const team of teams) {
+      for (const period of periods) {
+        try {
+          // Make internal request to the productivity endpoint with refresh=true
+          const url = `http://localhost:${PORT}/api/productivity?team=${encodeURIComponent(team)}&period=${period}&refresh=true`;
+          const response = await fetch(url);
+
+          if (response.ok) {
+            results.cached.push({ type: 'team', team, period, status: 'success' });
+          } else {
+            results.cached.push({ type: 'team', team, period, status: 'failed' });
+          }
+        } catch (error) {
+          console.error(`Failed to warm cache for ${team} ${period}:`, error);
+          results.cached.push({ type: 'team', team, period, status: 'error', error: error.message });
+        }
+      }
+    }
+
+    // Warm up summary caches
+    for (const period of periods) {
+      try {
+        const url = `http://localhost:${PORT}/api/productivity/summary?period=${period}&refresh=true`;
+        const response = await fetch(url);
+
+        if (response.ok) {
+          results.cached.push({ type: 'summary', period, status: 'success' });
+        } else {
+          results.cached.push({ type: 'summary', period, status: 'failed' });
+        }
+      } catch (error) {
+        console.error(`Failed to warm cache for summary ${period}:`, error);
+        results.cached.push({ type: 'summary', period, status: 'error', error: error.message });
+      }
+    }
+
+    results.completed = new Date().toISOString();
+    results.successCount = results.cached.filter(c => c.status === 'success').length;
+    results.failedCount = results.cached.filter(c => c.status !== 'success').length;
+
+    res.json(results);
+
+  } catch (error) {
+    console.error('Cache warmup error:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to warm up caches'
+    });
+  }
+});
+
+/**
+ * GET /api/productivity/cache-status
+ * Get status of all productivity caches
+ */
+app.get('/api/productivity/cache-status', function(req, res) {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const orgRosterPath = path.join(__dirname, '../src/data/org-roster.json');
+
+    if (!fs.existsSync(orgRosterPath)) {
+      return res.status(404).json({
+        error: 'Org roster data not found. Please ensure src/data/org-roster.json exists.'
+      });
+    }
+
+    const orgRoster = JSON.parse(fs.readFileSync(orgRosterPath, 'utf-8'));
+    const teams = Object.keys(orgRoster.teams || {});
+    const periods = ['weekly', 'monthly', 'quarterly'];
+
+    const caches = [];
+
+    // Check team caches
+    for (const team of teams) {
+      for (const period of periods) {
+        const key = getProductivityCacheKey('productivity', { team, period });
+        const cacheEntry = readFromStorage(key);
+
+        caches.push({
+          type: 'team',
+          team,
+          period,
+          cached: cacheEntry !== null,
+          valid: isProductivityCacheValid(cacheEntry),
+          cachedAt: cacheEntry?.cachedAt || null,
+          age: cacheEntry?.cachedAt ? Date.now() - new Date(cacheEntry.cachedAt).getTime() : null
+        });
+      }
+    }
+
+    // Check summary caches
+    for (const period of periods) {
+      const key = getProductivityCacheKey('summary', { period });
+      const cacheEntry = readFromStorage(key);
+
+      caches.push({
+        type: 'summary',
+        period,
+        cached: cacheEntry !== null,
+        valid: isProductivityCacheValid(cacheEntry),
+        cachedAt: cacheEntry?.cachedAt || null,
+        age: cacheEntry?.cachedAt ? Date.now() - new Date(cacheEntry.cachedAt).getTime() : null
+      });
+    }
+
+    const summary = {
+      totalCaches: caches.length,
+      cached: caches.filter(c => c.cached).length,
+      valid: caches.filter(c => c.valid).length,
+      expired: caches.filter(c => c.cached && !c.valid).length,
+      missing: caches.filter(c => !c.cached).length
+    };
+
+    res.json({
+      summary,
+      caches
+    });
+
+  } catch (error) {
+    console.error('Get cache status error:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to get cache status'
     });
   }
 });

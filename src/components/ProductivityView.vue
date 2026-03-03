@@ -77,6 +77,30 @@
             </button>
           </div>
         </div>
+
+        <!-- Cache Status and Refresh -->
+        <div class="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="text-sm text-gray-600">
+              <span class="font-medium">Cache Status:</span>
+              <span v-if="lastCachedAt" class="ml-2">
+                Last refreshed {{ cacheAge }}
+              </span>
+              <span v-else class="ml-2 text-gray-400">No cache</span>
+            </span>
+          </div>
+          <button
+            @click="refreshData"
+            :disabled="isLoading"
+            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          >
+            <svg v-if="!isLoading" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            <span v-if="isLoading" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+            {{ isLoading ? 'Refreshing...' : 'Refresh Data' }}
+          </button>
+        </div>
       </div>
 
       <!-- Summary Cards -->
@@ -200,7 +224,9 @@ export default {
       productivityData: [],
       isLoading: false,
       viewMode: 'cards', // 'cards' or 'table'
-      selectedRoles: [] // array of role strings
+      selectedRoles: [], // array of role strings
+      lastCachedAt: null, // timestamp when data was last cached
+      cacheCheckInterval: null
     }
   },
   computed: {
@@ -247,6 +273,22 @@ export default {
     },
     maxIssues() {
       return Math.max(...this.filteredData.map(e => e.totalIssuesResolved), 1)
+    },
+    cacheAge() {
+      if (!this.lastCachedAt) return 'Never'
+
+      const now = Date.now()
+      const cached = new Date(this.lastCachedAt).getTime()
+      const ageMs = now - cached
+
+      const minutes = Math.floor(ageMs / 60000)
+      if (minutes < 1) return 'just now'
+      if (minutes === 1) return '1 minute ago'
+      if (minutes < 60) return `${minutes} minutes ago`
+
+      const hours = Math.floor(minutes / 60)
+      if (hours === 1) return '1 hour ago'
+      return `${hours} hours ago`
     }
   },
   watch: {
@@ -271,6 +313,16 @@ export default {
     this.parseUrlParams()
     this.loadFromLocalStorage()
     this.fetchTeams()
+
+    // Update cache age every minute
+    this.cacheCheckInterval = setInterval(() => {
+      this.$forceUpdate() // Trigger re-render to update cache age display
+    }, 60000)
+  },
+  beforeUnmount() {
+    if (this.cacheCheckInterval) {
+      clearInterval(this.cacheCheckInterval)
+    }
   },
   methods: {
     async fetchTeams() {
@@ -287,19 +339,23 @@ export default {
         this.availableTeams = []
       }
     },
-    async fetchProductivityData() {
+    async fetchProductivityData(forceRefresh = false) {
       if (!this.selectedTeam) return
 
       this.isLoading = true
       try {
-        const data = await getProductivityData(this.selectedTeam, this.timePeriod)
+        const data = await getProductivityData(this.selectedTeam, this.timePeriod, forceRefresh)
         this.productivityData = data.members || []
+        this.lastCachedAt = new Date().toISOString()
       } catch (error) {
         console.error('Failed to load productivity data:', error)
         this.productivityData = []
       } finally {
         this.isLoading = false
       }
+    },
+    async refreshData() {
+      await this.fetchProductivityData(true)
     },
     selectTeam(teamName) {
       this.selectedTeam = teamName
