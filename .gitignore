@@ -28,6 +28,9 @@ public/releases.json
 .env
 .env.local
 .env.*.local
+
+# Org roster - contains PII, never commit
+src/data/org-roster.json
 *.local
 
 # Claude Code configuration - user-specific settings
