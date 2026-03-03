@@ -314,6 +314,8 @@ export default {
     document.addEventListener('click', this.handleClickOutside)
     // Parse URL parameters for initial filters
     this.initialFiltersFromUrl = this.parseUrlParams()
+    // Auto-open hygiene modal if ?hygiene=help is in URL
+    this.checkHygieneHelpParam()
   },
   beforeUnmount() {
     document.removeEventListener('click', this.handleClickOutside)
@@ -649,6 +651,19 @@ export default {
       this.currentView = view
       localStorage.setItem('currentView', view)
       this.updateUrlParams()
+    },
+
+    checkHygieneHelpParam() {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('hygiene') === 'help') {
+        this.showHygieneModal = true
+        // Clean the param from URL so refresh doesn't re-trigger
+        params.delete('hygiene')
+        const newUrl = params.toString()
+          ? `${window.location.pathname}?${params.toString()}`
+          : window.location.pathname
+        window.history.replaceState({}, '', newUrl)
+      }
     },
 
     parseUrlParams() {

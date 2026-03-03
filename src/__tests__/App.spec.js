@@ -10,6 +10,7 @@ import KanbanBoard from '../components/KanbanBoard.vue'
 import FilterBar from '../components/FilterBar.vue'
 import ReleaseTabBar from '../components/ReleaseTabBar.vue'
 import ReleaseInfoPanel from '../components/ReleaseInfoPanel.vue'
+import HygieneRulesModal from '../components/HygieneRulesModal.vue'
 
 // Mock useAuth composable
 vi.mock('../composables/useAuth', () => ({
@@ -489,6 +490,21 @@ describe('App', () => {
 
     // Loading indicator should be hidden even after error
     expect(wrapper.find('[data-testid="loading-overlay"]').exists()).toBe(false)
+  })
+
+  it('auto-opens hygiene modal when ?hygiene=help is in URL', async () => {
+    // Set URL with hygiene=help param using pushState (jsdom-safe)
+    window.history.pushState({}, '', '/?hygiene=help')
+
+    const wrapper = mount(App)
+    await flushPromises()
+
+    const modal = wrapper.findComponent(HygieneRulesModal)
+    expect(modal.exists()).toBe(true)
+    expect(modal.props('show')).toBe(true)
+
+    // Restore URL
+    window.history.pushState({}, '', '/')
   })
 
   it('loading overlay appears over the kanban board area', async () => {

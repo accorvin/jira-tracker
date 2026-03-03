@@ -64,6 +64,7 @@ export const hygieneRules = [
     id: 'stale-refinement',
     name: 'Stale Refinement',
     description: 'Issues shouldn\'t linger in Refinement. If an issue has been in Refinement for more than 21 days, it\'s likely blocked or needs to be descoped. Move it back to Backlog or escalate blockers.',
+    remediation: 'Review the issue and either move it forward to In Progress, return it to Backlog, or escalate any blockers.',
     check: (issue) => {
       return isInRefinement(issue) && getDaysInStatus(issue) > 21
     },
@@ -80,6 +81,7 @@ export const hygieneRules = [
     id: 'missing-assignee',
     name: 'Missing Assignee',
     description: 'Every issue in active work (Refinement or In Progress) needs an owner. Assign someone to ensure accountability and clear communication.',
+    remediation: 'Open the issue in Jira and set the Assignee field to the person responsible for this work.',
     check: (issue) => {
       return (isInRefinement(issue) || isInProgress(issue)) && !issue.assignee
     },
@@ -96,6 +98,7 @@ export const hygieneRules = [
     id: 'missing-team',
     name: 'Missing Team',
     description: 'Issues in active work must have a team assigned for tracking ownership and workload distribution across the organization.',
+    remediation: 'Open the issue in Jira and set the Team field to your team name.',
     check: (issue) => {
       return (isInRefinement(issue) || isInProgress(issue)) && !issue.team
     },
@@ -111,6 +114,7 @@ export const hygieneRules = [
     id: 'stale-status-summary',
     name: 'Stale or Missing Status Summary',
     description: 'Status summaries keep stakeholders informed. Update the summary at least weekly.',
+    remediation: 'Open the issue in Jira and update the Status Summary field with current progress information.',
     check: (issue) => {
       if (!isInRefinement(issue) && !isInProgress(issue)) {
         return false
@@ -141,6 +145,7 @@ export const hygieneRules = [
     id: 'missing-color-status',
     name: 'Missing Color Status',
     description: 'Issues In Progress need a health indicator (Green/Yellow/Red) so leadership can quickly identify items needing attention.',
+    remediation: 'Open the issue in Jira and set the Color Status field to Green, Yellow, or Red based on current health.',
     check: (issue) => {
       return isInProgress(issue) && !issue.colorStatus
     },
@@ -156,6 +161,7 @@ export const hygieneRules = [
     id: 'missing-release-type',
     name: 'Missing Release Type',
     description: 'Features In Progress must specify their release type (GA, Tech Preview, Dev Preview) for accurate release planning and documentation.',
+    remediation: 'Open the issue in Jira and set the Release Type field to GA, Tech Preview, or Dev Preview.',
     check: (issue) => {
       return isInProgress(issue) && issue.issueType === 'Feature' && !issue.releaseType
     },
@@ -171,6 +177,7 @@ export const hygieneRules = [
     id: 'missing-rfe-link',
     name: 'Missing RFE Link',
     description: 'Features should be cloned from an approved RFE to ensure proper product management review and customer traceability. The feature must use a "clones" link type to the RFE; other link types will still trigger this warning.',
+    remediation: 'Ensure your feature is cloned from an RFE that is in Approved status. Use the "clones" link type when linking to the RFE.',
     check: (issue) => {
       if (issue.issueType !== 'Feature') return false
       if (!isInRefinement(issue) && !isInProgress(issue)) return false
@@ -192,6 +199,7 @@ export const hygieneRules = [
     id: 'premature-release-target',
     name: 'Premature Release Target',
     description: 'Issues in New status shouldn\'t have a target release yet. Target release should only be set after refinement confirms the scope and effort.',
+    remediation: 'Remove the target release from this issue until it has been through refinement and scope/effort are confirmed.',
     check: (issue) => {
       return issue.status === 'New' &&
              issue.targetRelease &&
@@ -206,6 +214,7 @@ export const hygieneRules = [
     id: 'missing-docs-required',
     name: 'Missing Docs Required',
     description: 'Features In Progress need to specify whether product documentation is required so docs team can plan accordingly.',
+    remediation: 'Open the issue in Jira and set the "Product Documentation Required" field to Yes or No.',
     check: (issue) => {
       if (issue.issueType !== 'Feature') {
         return false
@@ -227,6 +236,7 @@ export const hygieneRules = [
     id: 'missing-target-end',
     name: 'Missing Target End',
     description: 'Features in Refinement or In Progress must have a Target End date set for planning and tracking purposes.',
+    remediation: 'Open the issue in Jira and set the Target End date field.',
     check: (issue) => {
       if (issue.issueType !== 'Feature') return false
       if (!isInRefinement(issue) && !isInProgress(issue)) return false
@@ -244,6 +254,7 @@ export const hygieneRules = [
     id: 'missing-rice-score',
     name: 'Missing RICE Score',
     description: 'Features in Refinement must have RICE score set. Features In Progress for releases after 3.4-ea1 also require RICE score.',
+    remediation: 'Open the issue in Jira and complete the RICE scoring by setting Reach, Impact, Confidence, and Effort values.',
     check: (issue) => {
       if (issue.issueType !== 'Feature') return false
 

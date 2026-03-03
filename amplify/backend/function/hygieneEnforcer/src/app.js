@@ -136,7 +136,7 @@ async function addComment(issueKey, ruleId, ruleName, commentBody) {
     commentBody,
     '',
     '----',
-    `_Automated by RHOAI Release Tracker | Rule: ${ruleId}_`
+    `_Automated by RHOAI Release Tracker | Rule: ${ruleId} | [Learn more|https://red.ht/rhoai-jira-tracking?hygiene=help]_`
   ].join('\n');
 
   const response = await fetch(url, {

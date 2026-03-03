@@ -95,6 +95,89 @@ describe('HygieneRulesModal', () => {
     })
   })
 
+  describe('FAQ Section', () => {
+    it('displays "What is hygiene enforcement?" section', () => {
+      const wrapper = mount(HygieneRulesModal, {
+        props: { show: true }
+      })
+
+      expect(wrapper.text()).toContain('What is hygiene enforcement?')
+    })
+
+    it('displays "How does it work?" section', () => {
+      const wrapper = mount(HygieneRulesModal, {
+        props: { show: true }
+      })
+
+      expect(wrapper.text()).toContain('How does it work?')
+    })
+
+    it('displays "What happens when a rule is enforced?" section', () => {
+      const wrapper = mount(HygieneRulesModal, {
+        props: { show: true }
+      })
+
+      expect(wrapper.text()).toContain('What happens when a rule is enforced?')
+    })
+  })
+
+  describe('Remediation', () => {
+    it('displays remediation text for each rule', () => {
+      const wrapper = mount(HygieneRulesModal, {
+        props: { show: true }
+      })
+
+      hygieneRules.forEach(rule => {
+        expect(wrapper.text()).toContain(rule.remediation)
+      })
+    })
+
+    it('displays "How to fix" label for remediation sections', () => {
+      const wrapper = mount(HygieneRulesModal, {
+        props: { show: true }
+      })
+
+      expect(wrapper.text()).toContain('How to fix')
+    })
+  })
+
+  describe('Enforcement badges', () => {
+    it('displays "Comment Only" badge for comment-only enforcement rules', () => {
+      const wrapper = mount(HygieneRulesModal, {
+        props: { show: true }
+      })
+
+      const commentOnlyRules = hygieneRules.filter(r => r.enforcement && r.enforcement.type === 'comment-only')
+      expect(commentOnlyRules.length).toBeGreaterThan(0)
+
+      expect(wrapper.text()).toContain('Comment Only')
+    })
+
+    it('displays "May move issue" badge for transition enforcement rules', () => {
+      const wrapper = mount(HygieneRulesModal, {
+        props: { show: true }
+      })
+
+      const transitionRules = hygieneRules.filter(r => r.enforcement && r.enforcement.type === 'transition')
+      expect(transitionRules.length).toBeGreaterThan(0)
+
+      transitionRules.forEach(rule => {
+        expect(wrapper.text()).toContain(`May move issue to ${rule.enforcement.targetStatus}`)
+      })
+    })
+
+    it('displays "Display Only" badge for rules without enforcement', () => {
+      const wrapper = mount(HygieneRulesModal, {
+        props: { show: true }
+      })
+
+      const displayOnlyRules = hygieneRules.filter(r => !r.enforcement)
+      expect(displayOnlyRules.length).toBeGreaterThan(0)
+
+      expect(wrapper.text()).toContain('Display Only')
+    })
+  })
+
   describe('Accessibility', () => {
     it('has role="dialog" on modal', () => {
       const wrapper = mount(HygieneRulesModal, {

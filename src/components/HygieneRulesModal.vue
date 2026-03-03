@@ -34,6 +34,22 @@
 
         <!-- Content -->
         <div class="p-6 overflow-y-auto flex-grow">
+          <!-- FAQ Section -->
+          <div class="mb-6 space-y-4 bg-blue-50 rounded-lg p-4">
+            <div>
+              <h3 class="font-semibold text-gray-900">What is hygiene enforcement?</h3>
+              <p class="text-sm text-gray-600 mt-1">Hygiene enforcement automatically checks Jira issues for missing or outdated fields and takes action to keep the project on track. It ensures issues have the information needed for planning, tracking, and communication.</p>
+            </div>
+            <div>
+              <h3 class="font-semibold text-gray-900">How does it work?</h3>
+              <p class="text-sm text-gray-600 mt-1">Automated checks run twice daily (8am and 8pm UTC). Violations generate proposals that are reviewed by admins before any action is taken on your issues.</p>
+            </div>
+            <div>
+              <h3 class="font-semibold text-gray-900">What happens when a rule is enforced?</h3>
+              <p class="text-sm text-gray-600 mt-1">Depending on the rule, either a comment is posted on the issue explaining what needs to be fixed, or the issue is transitioned to a different status and a comment is posted.</p>
+            </div>
+          </div>
+
           <p class="text-gray-600 mb-4">
             These rules help maintain issue hygiene and ensure clear communication across the team.
             Issues violating these rules will display a pulsing warning icon.
@@ -54,8 +70,32 @@
               :key="rule.id"
               class="border border-gray-200 rounded-lg p-4"
             >
-              <h3 class="font-semibold text-gray-900 mb-2">{{ rule.name }}</h3>
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <h3 class="font-semibold text-gray-900">{{ rule.name }}</h3>
+                <span
+                  v-if="rule.enforcement && rule.enforcement.type === 'transition'"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800 whitespace-nowrap"
+                >
+                  May move issue to {{ rule.enforcement.targetStatus }}
+                </span>
+                <span
+                  v-else-if="rule.enforcement && rule.enforcement.type === 'comment-only'"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 whitespace-nowrap"
+                >
+                  Comment Only
+                </span>
+                <span
+                  v-else
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 whitespace-nowrap"
+                >
+                  Display Only
+                </span>
+              </div>
               <p class="text-sm text-gray-600 leading-relaxed">{{ rule.description }}</p>
+              <div v-if="rule.remediation" class="mt-3 bg-green-50 rounded p-3">
+                <p class="text-xs font-semibold text-green-800 mb-1">How to fix</p>
+                <p class="text-sm text-green-700">{{ rule.remediation }}</p>
+              </div>
             </div>
           </div>
         </div>
