@@ -634,5 +634,6 @@ module.exports = {
   buildPlanFields,
   buildProductivityJql,
   calculateCycleTime,
-  aggregateByPeriod
+  aggregateByPeriod,
+  getPeriodBucket
 };

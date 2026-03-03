@@ -27,7 +27,8 @@ const {
   buildPlanFields,
   buildProductivityJql,
   calculateCycleTime,
-  aggregateByPeriod
+  aggregateByPeriod,
+  getPeriodBucket
 } = require('./shared/jira-helpers');
 
 const app = express();
@@ -742,12 +743,232 @@ app.get('/productivity', async function(req, res) {
   }
 });
 
+/**
+ * GET /productivity/member/:name?period=<weekly|monthly|quarterly>
+ * Get productivity metrics for an individual member
+ */
+app.get('/productivity/member/:name', async function(req, res) {
+  try {
+    const { name } = req.params;
+    const { period } = req.query;
+
+    // Validate period parameter
+    if (!period || !['weekly', 'monthly', 'quarterly'].includes(period)) {
+      return res.status(400).json({
+        error: 'Invalid or missing period. Must be: weekly, monthly, or quarterly'
+      });
+    }
+
+    // Read org-roster.json from S3
+    const orgRoster = await readFromS3('org-roster.json');
+
+    // Find the member by name or jiraDisplayName across all teams
+    let foundMember = null;
+    let foundTeam = null;
+
+    for (const [teamName, teamData] of Object.entries(orgRoster.teams || {})) {
+      const member = (teamData.members || []).find(m =>
+        m.jiraDisplayName === name || m.name === name
+      );
+
+      if (member) {
+        foundMember = member;
+        foundTeam = teamName;
+        break;
+      }
+    }
+
+    if (!foundMember) {
+      return res.status(404).json({
+        error: `Member not found in org roster: ${name}`
+      });
+    }
+
+    // Calculate date range based on period
+    const endDate = new Date();
+    const startDate = new Date();
+
+    if (period === 'weekly') {
+      startDate.setDate(endDate.getDate() - 28); // Last 4 weeks
+    } else if (period === 'monthly') {
+      startDate.setDate(endDate.getDate() - 180); // Last 6 months
+    } else if (period === 'quarterly') {
+      startDate.setDate(endDate.getDate() - 365); // Last 4 quarters
+    }
+
+    // Format start date for JQL (YYYY-MM-DD)
+    const year = startDate.getFullYear();
+    const month = String(startDate.getMonth() + 1).padStart(2, '0');
+    const day = String(startDate.getDate()).padStart(2, '0');
+    const startDateStr = `${year}-${month}-${day}`;
+
+    // Build JQL query for this single member
+    const jql = buildProductivityJql([foundMember.jiraDisplayName], startDateStr);
+
+    // Fetch issues from Jira
+    const jiraToken = await getJiraToken();
+    const issues = [];
+    let startAt = 0;
+    const maxResults = 100;
+
+    while (true) {
+      const url = new URL(`${JIRA_HOST}/rest/api/2/search`);
+      url.searchParams.set('jql', jql);
+      url.searchParams.set('startAt', startAt.toString());
+      url.searchParams.set('maxResults', maxResults.toString());
+      url.searchParams.set('fields', 'key,summary,assignee,created,resolved,customfield_12310243,customfield_12310920,storyPoints');
+
+      const response = await fetch(url.toString(), {
+        headers: {
+          'Authorization': `Bearer ${jiraToken}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Jira API error (${response.status}): ${errorText}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.issues || data.issues.length === 0) {
+        break;
+      }
+
+      issues.push(...data.issues);
+
+      if (data.issues.length < maxResults) {
+        break;
+      }
+
+      startAt += maxResults;
+    }
+
+    console.log(`Fetched ${issues.length} resolved issues for member ${name}`);
+
+    // Calculate summary statistics
+    let totalIssuesResolved = issues.length;
+    let totalStoryPoints = 0;
+    let cycleTimes = [];
+
+    // Build period breakdown and detailed issue list
+    const periodBuckets = {};
+    const issueDetails = [];
+
+    for (const issue of issues) {
+      const cycleTime = calculateCycleTime(issue);
+      if (cycleTime !== null) {
+        cycleTimes.push(cycleTime);
+      }
+
+      // Get story points
+      const storyPoints = issue.fields.customfield_12310243 ||
+                         issue.fields.customfield_12310920 ||
+                         issue.fields.storyPoints || 0;
+      totalStoryPoints += Number(storyPoints);
+
+      // Add to detailed issue list
+      issueDetails.push({
+        key: issue.key,
+        summary: issue.fields.summary,
+        resolved: issue.fields.resolved,
+        storyPoints: Number(storyPoints),
+        cycleTimeDays: cycleTime !== null ? Math.round(cycleTime * 10) / 10 : null
+      });
+
+      // Aggregate into period buckets
+      if (issue.fields.resolved) {
+        const bucket = getPeriodBucket(issue.fields.resolved, period);
+        if (!periodBuckets[bucket]) {
+          periodBuckets[bucket] = {
+            period: bucket,
+            issuesResolved: 0,
+            storyPoints: 0,
+            cycleTimes: []
+          };
+        }
+
+        periodBuckets[bucket].issuesResolved++;
+        periodBuckets[bucket].storyPoints += Number(storyPoints);
+        if (cycleTime !== null) {
+          periodBuckets[bucket].cycleTimes.push(cycleTime);
+        }
+      }
+    }
+
+    // Calculate average cycle time
+    const avgCycleTimeDays = cycleTimes.length > 0
+      ? cycleTimes.reduce((a, b) => a + b, 0) / cycleTimes.length
+      : null;
+
+    // Convert period buckets to array and calculate averages
+    const periodBreakdown = Object.values(periodBuckets).map(bucket => {
+      const avgCycleTime = bucket.cycleTimes.length > 0
+        ? bucket.cycleTimes.reduce((a, b) => a + b, 0) / bucket.cycleTimes.length
+        : null;
+
+      return {
+        period: bucket.period,
+        issuesResolved: bucket.issuesResolved,
+        storyPoints: bucket.storyPoints,
+        avgCycleTimeDays: avgCycleTime !== null ? Math.round(avgCycleTime * 10) / 10 : null
+      };
+    });
+
+    // Sort issues by resolved date (most recent first)
+    issueDetails.sort((a, b) => {
+      if (!a.resolved || !b.resolved) return 0;
+      return new Date(b.resolved) - new Date(a.resolved);
+    });
+
+    res.json({
+      member: {
+        name: foundMember.name,
+        jiraDisplayName: foundMember.jiraDisplayName,
+        specialty: foundMember.specialty || 'Unknown',
+        manager: foundMember.manager || 'Unknown',
+        team: foundTeam,
+        miroTeam: foundMember.miroTeam || null,
+        jiraComponent: foundMember.jiraComponent || null
+      },
+      period,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      summary: {
+        totalIssuesResolved,
+        totalStoryPoints,
+        avgCycleTimeDays: avgCycleTimeDays !== null ? Math.round(avgCycleTimeDays * 10) / 10 : null
+      },
+      periodBreakdown,
+      issues: issueDetails
+    });
+
+  } catch (error) {
+    console.error('Get member productivity data error:', error);
+
+    if (error.message?.includes('not found') || error.message?.includes('NoSuchKey')) {
+      return res.status(404).json({
+        error: 'Org roster data not found. Please contact administrator.'
+      });
+    }
+
+    res.status(500).json({
+      error: error.message || 'Failed to fetch member productivity data'
+    });
+  }
+});
+
 // Handle OPTIONS for CORS preflight
 app.options('/productivity/teams', function(req, res) {
   res.status(200).end();
 });
 
 app.options('/productivity', function(req, res) {
+  res.status(200).end();
+});
+
+app.options('/productivity/member/*', function(req, res) {
   res.status(200).end();
 });
 

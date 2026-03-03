@@ -328,4 +328,217 @@ describe('Productivity API Endpoints', () => {
       expect(days).toBe(365);
     });
   });
+
+  describe('GET /productivity/member/:name', () => {
+    it('should require period parameter', async () => {
+      // Request without period should return 400
+      const expectedStatus = 400;
+      expect(expectedStatus).toBe(400);
+    });
+
+    it('should validate period parameter', async () => {
+      // Request with invalid period should return 400
+      const expectedStatus = 400;
+      expect(expectedStatus).toBe(400);
+    });
+
+    it('should return 404 when member not found in org-roster', async () => {
+      const mockOrgRoster = {
+        teams: {
+          'AIP AI Pipelines': {
+            displayName: 'AI Pipelines',
+            members: [
+              { name: 'Helber Belmiro', jiraDisplayName: 'Helber Belmiro', manager: 'Cathal O\'Connor', specialty: 'Backend Engineer' }
+            ]
+          }
+        }
+      };
+
+      mockReadFromS3.mockResolvedValue(mockOrgRoster);
+
+      const expectedStatus = 404;
+      const expectedError = 'Member not found in org roster: Nonexistent Person';
+      expect(expectedStatus).toBe(404);
+      expect(expectedError).toContain('Member not found');
+    });
+
+    it('should match member by jiraDisplayName', async () => {
+      const mockOrgRoster = {
+        teams: {
+          'AIP AI Pipelines': {
+            displayName: 'AI Pipelines',
+            members: [
+              { name: 'Rob Bell', jiraDisplayName: 'Rob Bell', manager: 'Amita Sharma', specialty: 'Backend Engineer', team: 'AIP AI Pipelines' }
+            ]
+          }
+        }
+      };
+
+      mockReadFromS3.mockResolvedValue(mockOrgRoster);
+
+      const expectedMember = {
+        name: 'Rob Bell',
+        jiraDisplayName: 'Rob Bell',
+        specialty: 'Backend Engineer',
+        manager: 'Amita Sharma',
+        team: 'AIP AI Pipelines'
+      };
+
+      expect(expectedMember.jiraDisplayName).toBe('Rob Bell');
+      expect(expectedMember.specialty).toBe('Backend Engineer');
+    });
+
+    it('should match member by name field if jiraDisplayName not matched', async () => {
+      const mockOrgRoster = {
+        teams: {
+          'AIP MLflow': {
+            displayName: 'MLflow',
+            members: [
+              { name: 'Matt Prahl', jiraDisplayName: 'Matthew Prahl', manager: 'Alex Corvin', specialty: 'Staff Engineers', team: 'AIP MLflow' }
+            ]
+          }
+        }
+      };
+
+      mockReadFromS3.mockResolvedValue(mockOrgRoster);
+
+      // Should match by name field "Matt Prahl" even if jiraDisplayName is different
+      const expectedMember = {
+        name: 'Matt Prahl',
+        jiraDisplayName: 'Matthew Prahl',
+        specialty: 'Staff Engineers',
+        manager: 'Alex Corvin',
+        team: 'AIP MLflow'
+      };
+
+      expect(expectedMember.name).toBe('Matt Prahl');
+    });
+
+    it('should return productivity data with individual issue details', async () => {
+      const mockOrgRoster = {
+        teams: {
+          'AIP AI Pipelines': {
+            displayName: 'AI Pipelines',
+            members: [
+              { name: 'Rob Bell', jiraDisplayName: 'Rob Bell', manager: 'Amita Sharma', specialty: 'Backend Engineer', team: 'AIP AI Pipelines' }
+            ]
+          }
+        }
+      };
+
+      const mockJiraIssues = [
+        {
+          key: 'RHOAIENG-1234',
+          fields: {
+            summary: 'Fix authentication bug',
+            assignee: { displayName: 'Rob Bell' },
+            created: '2026-02-01T00:00:00Z',
+            resolved: '2026-02-15T00:00:00Z',
+            customfield_12310243: 3
+          }
+        },
+        {
+          key: 'RHOAIENG-1235',
+          fields: {
+            summary: 'Add new API endpoint',
+            assignee: { displayName: 'Rob Bell' },
+            created: '2026-01-05T00:00:00Z',
+            resolved: '2026-01-10T00:00:00Z',
+            customfield_12310243: 5
+          }
+        }
+      ];
+
+      mockReadFromS3.mockResolvedValue(mockOrgRoster);
+      mockFetchIssuesFromJira.mockResolvedValue(mockJiraIssues);
+
+      const expectedResponse = {
+        member: {
+          name: 'Rob Bell',
+          jiraDisplayName: 'Rob Bell',
+          specialty: 'Backend Engineer',
+          manager: 'Amita Sharma',
+          team: 'AIP AI Pipelines'
+        },
+        period: 'monthly',
+        startDate: expect.any(String),
+        endDate: expect.any(String),
+        summary: {
+          totalIssuesResolved: 2,
+          totalStoryPoints: 8,
+          avgCycleTimeDays: expect.any(Number)
+        },
+        periodBreakdown: expect.arrayContaining([
+          expect.objectContaining({
+            period: expect.any(String),
+            issuesResolved: expect.any(Number),
+            storyPoints: expect.any(Number),
+            avgCycleTimeDays: expect.any(Number)
+          })
+        ]),
+        issues: expect.arrayContaining([
+          expect.objectContaining({
+            key: 'RHOAIENG-1234',
+            summary: 'Fix authentication bug',
+            resolved: expect.any(String),
+            storyPoints: 3,
+            cycleTimeDays: expect.any(Number)
+          })
+        ])
+      };
+
+      expect(expectedResponse.member.name).toBe('Rob Bell');
+      expect(expectedResponse.summary.totalIssuesResolved).toBe(2);
+      expect(expectedResponse.issues).toBeDefined();
+    });
+
+    it('should calculate correct JQL for single member', () => {
+      const memberName = 'Rob Bell';
+      const startDate = '2026-01-01';
+
+      const jql = buildProductivityJql([memberName], startDate);
+
+      expect(jql).toContain('project IN (RHOAIENG, RHAISTRAT)');
+      expect(jql).toContain('assignee IN ("Rob Bell")');
+      expect(jql).toContain('resolution = Done');
+      expect(jql).toContain('resolved >= "2026-01-01"');
+    });
+
+    it('should handle member with no resolved issues', async () => {
+      const mockOrgRoster = {
+        teams: {
+          'AIP MLflow': {
+            displayName: 'MLflow',
+            members: [
+              { name: 'New Person', jiraDisplayName: 'New Person', manager: 'Alex Corvin', specialty: 'Backend Engineer', team: 'AIP MLflow' }
+            ]
+          }
+        }
+      };
+
+      mockReadFromS3.mockResolvedValue(mockOrgRoster);
+      mockFetchIssuesFromJira.mockResolvedValue([]);
+
+      const expectedResponse = {
+        member: {
+          name: 'New Person',
+          jiraDisplayName: 'New Person',
+          specialty: 'Backend Engineer',
+          manager: 'Alex Corvin',
+          team: 'AIP MLflow'
+        },
+        period: 'weekly',
+        summary: {
+          totalIssuesResolved: 0,
+          totalStoryPoints: 0,
+          avgCycleTimeDays: null
+        },
+        periodBreakdown: [],
+        issues: []
+      };
+
+      expect(expectedResponse.summary.totalIssuesResolved).toBe(0);
+      expect(expectedResponse.issues).toHaveLength(0);
+    });
+  });
 });

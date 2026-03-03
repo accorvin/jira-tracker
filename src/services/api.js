@@ -637,3 +637,37 @@ export async function getProductivityData(team, period) {
     throw error;
   }
 }
+
+/**
+ * Get productivity data for an individual member
+ * @param {string} name - Member name (jiraDisplayName or name from org-roster)
+ * @param {string} period - Time period: 'weekly', 'monthly', or 'quarterly'
+ * @returns {Promise<{member: Object, period: string, startDate: string, endDate: string, summary: Object, periodBreakdown: Array, issues: Array}>}
+ */
+export async function getProductivityMember(name, period) {
+  try {
+    const token = await getAuthToken();
+
+    const url = new URL(`${API_ENDPOINT}/productivity/member/${encodeURIComponent(name)}`);
+    url.searchParams.set('period', period);
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 401) throw new Error('Authentication failed. Please sign in again.');
+      if (response.status === 404) throw new Error(errorData.error || 'Member not found');
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Get productivity member data error:', error);
+    throw error;
+  }
+}
