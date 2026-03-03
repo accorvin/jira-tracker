@@ -1045,6 +1045,258 @@ app.get('/api/productivity/member/:name', async function(req, res) {
   }
 });
 
+/**
+ * GET /api/productivity/summary?period=<weekly|monthly|quarterly>
+ * Get aggregated productivity metrics for all teams
+ * Uses bulk query optimization (3 queries instead of N×3)
+ */
+app.get('/api/productivity/summary', async function(req, res) {
+  try {
+    const { period } = req.query;
+
+    // Validate period parameter
+    if (!period || !['weekly', 'monthly', 'quarterly'].includes(period)) {
+      return res.status(400).json({
+        error: 'Invalid or missing period. Must be: weekly, monthly, or quarterly'
+      });
+    }
+
+    // Read org-roster.json from local filesystem
+    const fs = require('fs');
+    const path = require('path');
+    const orgRosterPath = path.join(__dirname, '../src/data/org-roster.json');
+
+    if (!fs.existsSync(orgRosterPath)) {
+      return res.status(404).json({
+        error: 'Org roster data not found. Please ensure src/data/org-roster.json exists.'
+      });
+    }
+
+    const orgRoster = JSON.parse(fs.readFileSync(orgRosterPath, 'utf-8'));
+
+    // Build assignee-to-team lookup map
+    const assigneeToTeam = {};
+    const teamHeadcounts = {};
+    let allAssignees = [];
+
+    Object.entries(orgRoster.teams || {}).forEach(([teamName, teamData]) => {
+      const members = teamData.members || [];
+      teamHeadcounts[teamName] = members.length;
+
+      members.forEach(m => {
+        assigneeToTeam[m.jiraDisplayName] = {
+          teamName,
+          headcount: members.length
+        };
+        allAssignees.push(m.jiraDisplayName);
+      });
+    });
+
+    if (allAssignees.length === 0) {
+      return res.json({
+        period,
+        startDate: new Date().toISOString(),
+        endDate: new Date().toISOString(),
+        totals: {
+          teams: 0,
+          headcount: 0,
+          issuesResolved: 0,
+          storyPoints: 0,
+          avgCycleTimeDays: null,
+          issuesPerCapita: 0,
+          storyPointsPerCapita: 0,
+          bugToFeatureRatio: null,
+          wipCount: 0,
+          featuresDelivered: 0
+        },
+        teams: []
+      });
+    }
+
+    // Calculate date range based on period
+    const endDate = new Date();
+    const startDate = new Date();
+
+    if (period === 'weekly') {
+      startDate.setDate(endDate.getDate() - 28); // Last 4 weeks
+    } else if (period === 'monthly') {
+      startDate.setDate(endDate.getDate() - 180); // Last 6 months
+    } else if (period === 'quarterly') {
+      startDate.setDate(endDate.getDate() - 365); // Last 4 quarters
+    }
+
+    // Format start date for JQL (YYYY-MM-DD)
+    const year = startDate.getFullYear();
+    const month = String(startDate.getMonth() + 1).padStart(2, '0');
+    const day = String(startDate.getDate()).padStart(2, '0');
+    const startDateStr = `${year}-${month}-${day}`;
+
+    // Execute 3 bulk queries in parallel
+    const [resolvedIssues, wipIssues, featureIssues] = await Promise.all([
+      // Query 1: Resolved issues
+      (async () => {
+        const jql = buildProductivityJql(allAssignees, startDateStr);
+        const fields = 'key,assignee,created,resolutiondate,issuetype,customfield_12310243,customfield_12310920,storyPoints';
+        return await fetchPaginated(jql, fields, { expand: 'changelog' });
+      })(),
+      // Query 2: WIP issues
+      (async () => {
+        const jql = buildWipJql(allAssignees);
+        const fields = 'key,summary,assignee,status,created';
+        return await fetchPaginated(jql, fields);
+      })(),
+      // Query 3: RHAISTRAT features
+      (async () => {
+        const jql = buildFeatureDeliveryJql(allAssignees, startDateStr);
+        const fields = 'key,summary,assignee,resolutiondate';
+        return await fetchPaginated(jql, fields);
+      })()
+    ]);
+
+    console.log(`Fetched ${resolvedIssues.length} resolved, ${wipIssues.length} WIP, ${featureIssues.length} features for all teams`);
+
+    // Bucket issues by team
+    const teamData = {};
+
+    // Initialize team buckets
+    Object.keys(orgRoster.teams || {}).forEach(teamName => {
+      teamData[teamName] = {
+        name: teamName,
+        headcount: teamHeadcounts[teamName],
+        resolvedIssues: [],
+        wipIssues: [],
+        featureIssues: []
+      };
+    });
+
+    // Bucket resolved issues
+    for (const issue of resolvedIssues) {
+      const assignee = issue.fields.assignee?.displayName;
+      if (assignee && assigneeToTeam[assignee]) {
+        const teamName = assigneeToTeam[assignee].teamName;
+        teamData[teamName].resolvedIssues.push(issue);
+      }
+    }
+
+    // Bucket WIP issues
+    for (const issue of wipIssues) {
+      const assignee = issue.fields.assignee?.displayName;
+      if (assignee && assigneeToTeam[assignee]) {
+        const teamName = assigneeToTeam[assignee].teamName;
+        teamData[teamName].wipIssues.push(issue);
+      }
+    }
+
+    // Bucket features
+    for (const issue of featureIssues) {
+      const assignee = issue.fields.assignee?.displayName;
+      if (assignee && assigneeToTeam[assignee]) {
+        const teamName = assigneeToTeam[assignee].teamName;
+        teamData[teamName].featureIssues.push(issue);
+      }
+    }
+
+    // Aggregate metrics per team
+    const teamsArray = Object.values(teamData).map(team => {
+      const { typeBreakdown, bugToFeatureRatio } = calculateTypeBreakdown(team.resolvedIssues);
+
+      let totalStoryPoints = 0;
+      let cycleTimes = [];
+
+      for (const issue of team.resolvedIssues) {
+        const storyPoints = issue.fields.customfield_12310243 ||
+                           issue.fields.customfield_12310920 ||
+                           issue.fields.storyPoints || 0;
+        totalStoryPoints += Number(storyPoints);
+
+        const cycleTime = calculateCycleTime(issue);
+        if (cycleTime !== null) {
+          cycleTimes.push(cycleTime);
+        }
+      }
+
+      const avgCycleTimeDays = cycleTimes.length > 0
+        ? cycleTimes.reduce((a, b) => a + b, 0) / cycleTimes.length
+        : null;
+
+      return {
+        name: team.name,
+        headcount: team.headcount,
+        issuesResolved: team.resolvedIssues.length,
+        storyPoints: totalStoryPoints,
+        avgCycleTimeDays: avgCycleTimeDays !== null ? Math.round(avgCycleTimeDays * 10) / 10 : null,
+        issuesPerCapita: team.headcount > 0 ? team.resolvedIssues.length / team.headcount : 0,
+        storyPointsPerCapita: team.headcount > 0 ? totalStoryPoints / team.headcount : 0,
+        bugToFeatureRatio,
+        typeBreakdown: {
+          story: typeBreakdown.story.count,
+          bug: typeBreakdown.bug.count,
+          task: typeBreakdown.task.count,
+          subTask: typeBreakdown.subTask.count,
+          other: typeBreakdown.other.count
+        },
+        wipCount: team.wipIssues.length,
+        featuresDelivered: team.featureIssues.length
+      };
+    });
+
+    // Calculate grand totals
+    let totalHeadcount = 0;
+    let totalIssuesResolved = 0;
+    let totalStoryPoints = 0;
+    let allCycleTimes = [];
+    let totalWipCount = 0;
+    let totalFeaturesDelivered = 0;
+
+    for (const team of teamsArray) {
+      totalHeadcount += team.headcount;
+      totalIssuesResolved += team.issuesResolved;
+      totalStoryPoints += team.storyPoints;
+      totalWipCount += team.wipCount;
+      totalFeaturesDelivered += team.featuresDelivered;
+
+      if (team.avgCycleTimeDays !== null) {
+        // Weight by number of issues
+        for (let i = 0; i < team.issuesResolved; i++) {
+          allCycleTimes.push(team.avgCycleTimeDays);
+        }
+      }
+    }
+
+    const avgCycleTimeDays = allCycleTimes.length > 0
+      ? allCycleTimes.reduce((a, b) => a + b, 0) / allCycleTimes.length
+      : null;
+
+    // Calculate overall bug-to-feature ratio from all resolved issues
+    const { bugToFeatureRatio: overallBugToFeatureRatio } = calculateTypeBreakdown(resolvedIssues);
+
+    res.json({
+      period,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      totals: {
+        teams: teamsArray.length,
+        headcount: totalHeadcount,
+        issuesResolved: totalIssuesResolved,
+        storyPoints: totalStoryPoints,
+        avgCycleTimeDays: avgCycleTimeDays !== null ? Math.round(avgCycleTimeDays * 10) / 10 : null,
+        issuesPerCapita: totalHeadcount > 0 ? totalIssuesResolved / totalHeadcount : 0,
+        storyPointsPerCapita: totalHeadcount > 0 ? totalStoryPoints / totalHeadcount : 0,
+        bugToFeatureRatio: overallBugToFeatureRatio,
+        wipCount: totalWipCount,
+        featuresDelivered: totalFeaturesDelivered
+      },
+      teams: teamsArray
+    });
+
+  } catch (error) {
+    console.error('Get productivity summary error:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to fetch productivity summary'
+    });
+  }
+});
+
 // CORS preflight
 app.options('/api/*', function(req, res) {
   res.status(200).end();
