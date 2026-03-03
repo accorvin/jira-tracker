@@ -671,3 +671,35 @@ export async function getProductivityMember(name, period) {
     throw error;
   }
 }
+
+/**
+ * Get productivity summary for all teams
+ * @param {string} period - Time period: 'weekly', 'monthly', or 'quarterly'
+ * @returns {Promise<{period: string, startDate: string, endDate: string, totals: Object, teams: Array}>}
+ */
+export async function getProductivitySummary(period) {
+  try {
+    const token = await getAuthToken();
+
+    const url = new URL(`${API_ENDPOINT}/productivity/summary`);
+    url.searchParams.set('period', period);
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      if (response.status === 401) throw new Error('Authentication failed. Please sign in again.');
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Get productivity summary error:', error);
+    throw error;
+  }
+}
