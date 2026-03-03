@@ -28,12 +28,31 @@ const {
   getPeriodBucket
 } = require('../amplify/backend/function/jiraFetcher/src/shared/jira-helpers');
 
-// Wrap calculateCycleTime to handle Jira's 'resolutiondate' field (API returns this, not 'resolved')
+// Calculate cycle time using changelog (In Progress → Resolved) when available,
+// falling back to created → resolved if no status transitions found.
 function calculateCycleTime(issue) {
-  const created = issue.fields.created;
   const resolved = issue.fields.resolutiondate || issue.fields.resolved;
   if (!resolved) return null;
-  const diffMs = new Date(resolved) - new Date(created);
+
+  const resolvedDate = new Date(resolved);
+
+  // Look for first transition to an active status in the changelog
+  const activeStatuses = ['In Progress', 'Coding In Progress'];
+  const histories = issue.changelog?.histories || [];
+
+  let firstInProgressDate = null;
+  for (const history of histories) {
+    for (const item of history.items || []) {
+      if (item.field === 'status' && activeStatuses.includes(item.toString)) {
+        firstInProgressDate = new Date(history.created);
+        break;
+      }
+    }
+    if (firstInProgressDate) break;
+  }
+
+  const startDate = firstInProgressDate || new Date(issue.fields.created);
+  const diffMs = resolvedDate - startDate;
   return diffMs / (1000 * 60 * 60 * 24);
 }
 
@@ -700,9 +719,9 @@ app.get('/api/productivity', async function(req, res) {
     // Build JQL query
     const jql = buildProductivityJql(memberNames, startDateStr);
 
-    // Fetch issues from Jira
+    // Fetch issues from Jira (with changelog for accurate cycle time)
     const fields = 'key,assignee,created,resolutiondate,customfield_12310243,customfield_12310920,storyPoints';
-    const issues = await fetchPaginated(jql, fields);
+    const issues = await fetchPaginated(jql, fields, { expand: 'changelog' });
 
     console.log(`Fetched ${issues.length} resolved issues for team ${team}`);
 
@@ -805,9 +824,9 @@ app.get('/api/productivity/member/:name', async function(req, res) {
     // Build JQL query for this single member
     const jql = buildProductivityJql([foundMember.jiraDisplayName], startDateStr);
 
-    // Fetch issues from Jira (include summary field)
+    // Fetch issues from Jira (include summary field + changelog for cycle time)
     const fields = 'key,summary,assignee,created,resolutiondate,customfield_12310243,customfield_12310920,storyPoints';
-    const issues = await fetchPaginated(jql, fields);
+    const issues = await fetchPaginated(jql, fields, { expand: 'changelog' });
 
     console.log(`Fetched ${issues.length} resolved issues for member ${name}`);
 
