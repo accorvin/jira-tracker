@@ -15,7 +15,7 @@
       "function": {
         "jiraFetcher": {
           "deploymentBucketName": "amplify-jiratrackerapp-dev-3b596-deployment",
-          "s3Key": "amplify-builds/jiraFetcher-50317352524339666349-build.zip"
+          "s3Key": "amplify-builds/jiraFetcher-394b436454467356366d-build.zip"
         },
         "issuesReader": {
           "deploymentBucketName": "amplify-jiratrackerapp-dev-3b596-deployment",
@@ -23,7 +23,7 @@
         },
         "hygieneEnforcer": {
           "deploymentBucketName": "amplify-jiratrackerapp-dev-3b596-deployment",
-          "s3Key": "amplify-builds/hygieneEnforcer-79423546795075513050-build.zip"
+          "s3Key": "amplify-builds/hygieneEnforcer-4347582b6d6a53723577-build.zip"
         }
       },
       "api": {

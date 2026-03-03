@@ -1,7 +1,6 @@
 /**
  * Admin Authorization Helper
  * Checks if a verified user is in the admin list.
- * In dev environment, all authenticated users are automatically admin.
  */
 
 /**
@@ -11,11 +10,6 @@
  * @returns {Promise<{isAdmin: boolean, admins?: string[]}>}
  */
 async function checkAdmin(verification, readFromS3) {
-  // Dev environment: all authenticated users are admin
-  if (process.env.ENV === 'dev') {
-    return { isAdmin: true };
-  }
-
   try {
     const data = await readFromS3('admins.json');
 

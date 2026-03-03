@@ -653,27 +653,30 @@ app.get('/admins', async function(req, res) {
       return res.status(401).json({ error: verification.error });
     }
 
-    const adminResult = await checkAdmin(verification, readFromS3);
+    let adminResult = await checkAdmin(verification, readFromS3);
+
+    // If admins.json doesn't exist yet, seed it with the default admin
+    if (!adminResult.isAdmin) {
+      const data = await readFromS3('admins.json');
+      if (!data) {
+        const seedData = {
+          admins: ['acorvin@redhat.com'],
+          updatedAt: new Date().toISOString(),
+          updatedBy: 'system'
+        };
+        await writeToS3('admins.json', seedData);
+        // Re-check now that the file exists
+        adminResult = await checkAdmin(verification, readFromS3);
+      }
+    }
 
     // If not admin, just return status (no list)
     if (!adminResult.isAdmin) {
       return res.json({ isAdmin: false });
     }
 
-    // Admin: also return the admin list
-    // In dev mode, there may be no admins.json — return empty list
-    let admins = adminResult.admins || [];
-    if (admins.length === 0 && process.env.ENV !== 'dev') {
-      // Auto-seed with default admin
-      const seedData = {
-        admins: ['acorvin@redhat.com'],
-        updatedAt: new Date().toISOString(),
-        updatedBy: 'system'
-      };
-      await writeToS3('admins.json', seedData);
-      admins = seedData.admins;
-    }
-
+    // Admin: return the admin list
+    const admins = adminResult.admins || [];
     res.json({ isAdmin: true, admins });
   } catch (error) {
     console.error('Get admin status error:', error);
