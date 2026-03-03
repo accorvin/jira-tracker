@@ -609,6 +609,140 @@ function aggregateByPeriod(issues, period) {
   return engineerData;
 }
 
+/**
+ * Build JQL for Work In Progress (WIP) issues
+ * @param {Array<string>} memberNames - List of member display names
+ * @returns {string} JQL query
+ */
+function buildWipJql(memberNames) {
+  // Escape quotes in names and wrap in quotes
+  const escapedNames = memberNames.map(name => {
+    const escaped = name.replace(/"/g, '\\"');
+    return `"${escaped}"`;
+  });
+
+  const assigneeFilter = `assignee IN (${escapedNames.join(', ')})`;
+  const projectFilter = 'project = RHOAIENG';
+  const statusFilter = "status IN ('In Progress', 'Coding In Progress', 'Review')";
+
+  return `${projectFilter} AND ${assigneeFilter} AND ${statusFilter}`;
+}
+
+/**
+ * Build JQL for RHAISTRAT feature delivery tracking
+ * @param {Array<string>} memberNames - List of member display names
+ * @param {string} startDate - Start date in YYYY-MM-DD format
+ * @returns {string} JQL query
+ */
+function buildFeatureDeliveryJql(memberNames, startDate) {
+  // Escape quotes in names and wrap in quotes
+  const escapedNames = memberNames.map(name => {
+    const escaped = name.replace(/"/g, '\\"');
+    return `"${escaped}"`;
+  });
+
+  const assigneeFilter = `assignee IN (${escapedNames.join(', ')})`;
+  const projectFilter = 'project = RHAISTRAT';
+  const resolutionFilter = 'resolution = Done';
+  const dateFilter = `resolved >= "${startDate}"`;
+  const typeFilter = 'issuetype = Feature';
+
+  return `${projectFilter} AND ${assigneeFilter} AND ${resolutionFilter} AND ${dateFilter} AND ${typeFilter}`;
+}
+
+/**
+ * Calculate issue type breakdown and bug-to-feature ratio
+ * @param {Array} issues - Raw Jira issues
+ * @returns {Object} Type breakdown and ratio
+ */
+function calculateTypeBreakdown(issues) {
+  const typeBreakdown = {
+    story: { count: 0, storyPoints: 0 },
+    bug: { count: 0, storyPoints: 0 },
+    task: { count: 0, storyPoints: 0 },
+    subTask: { count: 0, storyPoints: 0 },
+    other: { count: 0, storyPoints: 0 }
+  };
+
+  for (const issue of issues) {
+    const issueTypeName = issue.fields.issuetype?.name;
+    const storyPoints = issue.fields.customfield_12310243 ||
+                       issue.fields.customfield_12310920 ||
+                       issue.fields.storyPoints ||
+                       0;
+
+    // Map Jira issue types to our categories
+    let category = 'other';
+    if (issueTypeName === 'Story') {
+      category = 'story';
+    } else if (issueTypeName === 'Bug') {
+      category = 'bug';
+    } else if (issueTypeName === 'Task') {
+      category = 'task';
+    } else if (issueTypeName === 'Sub-task') {
+      category = 'subTask';
+    }
+
+    typeBreakdown[category].count++;
+    typeBreakdown[category].storyPoints += Number(storyPoints);
+  }
+
+  // Calculate bug-to-feature ratio
+  const bugToFeatureRatio = typeBreakdown.story.count > 0
+    ? typeBreakdown.bug.count / typeBreakdown.story.count
+    : null;
+
+  return { typeBreakdown, bugToFeatureRatio };
+}
+
+/**
+ * Calculate days an issue has been in progress
+ * @param {Object} issue - Jira issue object
+ * @param {boolean} useChangelog - If true, use changelog to find first In Progress transition (dev-server)
+ * @returns {number|null} Days in progress, or null if cannot determine
+ */
+function calculateDaysInProgress(issue, useChangelog = false) {
+  let startDate = null;
+
+  if (useChangelog && issue.changelog && issue.changelog.histories) {
+    // Search for first In Progress status transition
+    for (const history of issue.changelog.histories) {
+      for (const item of history.items) {
+        if (item.field === 'status' &&
+            (item.toString === 'In Progress' ||
+             item.toString === 'Coding In Progress' ||
+             item.toString === 'Review')) {
+          let timestamp = history.created;
+          // Normalize timestamp
+          if (timestamp.includes('+')) {
+            timestamp = timestamp.split('.')[0] + 'Z';
+          } else if (timestamp.includes('T') && timestamp.length > 19) {
+            timestamp = timestamp.substring(0, 19) + 'Z';
+          }
+          startDate = new Date(timestamp);
+          break;
+        }
+      }
+      if (startDate) break;
+    }
+  }
+
+  // Fall back to created date if no changelog or no In Progress transition found
+  if (!startDate && issue.fields.created) {
+    startDate = new Date(issue.fields.created);
+  }
+
+  if (!startDate) {
+    return null;
+  }
+
+  const now = new Date();
+  const diffMs = now - startDate;
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+  return diffDays;
+}
+
 module.exports = {
   JIRA_HOST,
   PLAN_ID,
@@ -635,5 +769,9 @@ module.exports = {
   buildProductivityJql,
   calculateCycleTime,
   aggregateByPeriod,
-  getPeriodBucket
+  getPeriodBucket,
+  buildWipJql,
+  buildFeatureDeliveryJql,
+  calculateTypeBreakdown,
+  calculateDaysInProgress
 };
