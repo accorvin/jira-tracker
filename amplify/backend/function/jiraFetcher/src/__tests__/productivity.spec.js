@@ -7,7 +7,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 const {
   buildProductivityJql,
   calculateCycleTime,
-  aggregateByPeriod
+  aggregateByPeriod,
+  buildWipJql,
+  buildFeatureDeliveryJql,
+  calculateTypeBreakdown,
+  calculateDaysInProgress
 } = require('../shared/jira-helpers');
 
 describe('Productivity Helper Functions', () => {
@@ -180,6 +184,285 @@ describe('Productivity Helper Functions', () => {
         expect(entry).toHaveProperty('issuesResolved');
         expect(entry).toHaveProperty('storyPoints');
       });
+    });
+  });
+
+  describe('buildWipJql', () => {
+    it('should build correct JQL for WIP issues with single member', () => {
+      const memberNames = ['John Doe'];
+
+      const jql = buildWipJql(memberNames);
+
+      expect(jql).toContain('project = RHOAIENG');
+      expect(jql).toContain('assignee IN ("John Doe")');
+      expect(jql).toContain("status IN ('In Progress', 'Coding In Progress', 'Review')");
+    });
+
+    it('should build correct JQL for WIP issues with multiple members', () => {
+      const memberNames = ['John Doe', 'Jane Smith', 'Bob Jones'];
+
+      const jql = buildWipJql(memberNames);
+
+      expect(jql).toContain('assignee IN ("John Doe", "Jane Smith", "Bob Jones")');
+    });
+
+    it('should escape special characters in names', () => {
+      const memberNames = ["O'Connor", 'Smith-Jones', 'Name with "quotes"'];
+
+      const jql = buildWipJql(memberNames);
+
+      expect(jql).toContain('"O\'Connor"');
+      expect(jql).toContain('"Smith-Jones"');
+      expect(jql).toContain('"Name with \\"quotes\\""');
+    });
+
+    it('should handle empty member list', () => {
+      const memberNames = [];
+
+      const jql = buildWipJql(memberNames);
+
+      expect(jql).toContain('assignee IN ()');
+    });
+  });
+
+  describe('buildFeatureDeliveryJql', () => {
+    it('should build correct JQL for RHAISTRAT features with single member', () => {
+      const memberNames = ['John Doe'];
+      const startDate = '2026-01-01';
+
+      const jql = buildFeatureDeliveryJql(memberNames, startDate);
+
+      expect(jql).toContain('project = RHAISTRAT');
+      expect(jql).toContain('assignee IN ("John Doe")');
+      expect(jql).toContain('resolution = Done');
+      expect(jql).toContain('resolved >= "2026-01-01"');
+      expect(jql).toContain('issuetype = Feature');
+    });
+
+    it('should build correct JQL for multiple members', () => {
+      const memberNames = ['John Doe', 'Jane Smith'];
+      const startDate = '2026-02-01';
+
+      const jql = buildFeatureDeliveryJql(memberNames, startDate);
+
+      expect(jql).toContain('assignee IN ("John Doe", "Jane Smith")');
+      expect(jql).toContain('resolved >= "2026-02-01"');
+    });
+
+    it('should escape special characters in names', () => {
+      const memberNames = ["O'Connor"];
+      const startDate = '2026-01-01';
+
+      const jql = buildFeatureDeliveryJql(memberNames, startDate);
+
+      expect(jql).toContain('"O\'Connor"');
+    });
+
+    it('should include date filter and issuetype', () => {
+      const memberNames = ['John Doe'];
+      const startDate = '2025-12-01';
+
+      const jql = buildFeatureDeliveryJql(memberNames, startDate);
+
+      expect(jql).toContain('resolved >= "2025-12-01"');
+      expect(jql).toContain('issuetype = Feature');
+    });
+  });
+
+  describe('calculateTypeBreakdown', () => {
+    it('should categorize issue types correctly', () => {
+      const issues = [
+        { fields: { issuetype: { name: 'Story' }, customfield_12310243: 5 } },
+        { fields: { issuetype: { name: 'Story' }, customfield_12310243: 3 } },
+        { fields: { issuetype: { name: 'Bug' }, customfield_12310243: 2 } },
+        { fields: { issuetype: { name: 'Bug' }, customfield_12310243: 1 } },
+        { fields: { issuetype: { name: 'Task' }, customfield_12310243: 0 } },
+        { fields: { issuetype: { name: 'Sub-task' }, customfield_12310243: 1 } },
+        { fields: { issuetype: { name: 'Epic' }, customfield_12310243: 0 } }
+      ];
+
+      const result = calculateTypeBreakdown(issues);
+
+      expect(result.typeBreakdown.story.count).toBe(2);
+      expect(result.typeBreakdown.story.storyPoints).toBe(8);
+      expect(result.typeBreakdown.bug.count).toBe(2);
+      expect(result.typeBreakdown.bug.storyPoints).toBe(3);
+      expect(result.typeBreakdown.task.count).toBe(1);
+      expect(result.typeBreakdown.task.storyPoints).toBe(0);
+      expect(result.typeBreakdown.subTask.count).toBe(1);
+      expect(result.typeBreakdown.subTask.storyPoints).toBe(1);
+      expect(result.typeBreakdown.other.count).toBe(1);
+      expect(result.typeBreakdown.other.storyPoints).toBe(0);
+    });
+
+    it('should calculate story points per type', () => {
+      const issues = [
+        { fields: { issuetype: { name: 'Story' }, customfield_12310243: 5 } },
+        { fields: { issuetype: { name: 'Story' }, customfield_12310243: 8 } },
+        { fields: { issuetype: { name: 'Bug' }, customfield_12310243: 2 } }
+      ];
+
+      const result = calculateTypeBreakdown(issues);
+
+      expect(result.typeBreakdown.story.storyPoints).toBe(13);
+      expect(result.typeBreakdown.bug.storyPoints).toBe(2);
+    });
+
+    it('should return correct bug-to-feature ratio', () => {
+      const issues = [
+        { fields: { issuetype: { name: 'Story' }, customfield_12310243: 5 } },
+        { fields: { issuetype: { name: 'Story' }, customfield_12310243: 3 } },
+        { fields: { issuetype: { name: 'Bug' }, customfield_12310243: 2 } }
+      ];
+
+      const result = calculateTypeBreakdown(issues);
+
+      expect(result.bugToFeatureRatio).toBe(0.5); // 1 bug / 2 stories
+    });
+
+    it('should return null ratio when no stories', () => {
+      const issues = [
+        { fields: { issuetype: { name: 'Bug' }, customfield_12310243: 2 } },
+        { fields: { issuetype: { name: 'Task' }, customfield_12310243: 0 } }
+      ];
+
+      const result = calculateTypeBreakdown(issues);
+
+      expect(result.bugToFeatureRatio).toBeNull();
+    });
+
+    it('should handle missing issuetype field', () => {
+      const issues = [
+        { fields: { customfield_12310243: 5 } },
+        { fields: { issuetype: { name: 'Story' }, customfield_12310243: 3 } }
+      ];
+
+      const result = calculateTypeBreakdown(issues);
+
+      expect(result.typeBreakdown.other.count).toBe(1);
+      expect(result.typeBreakdown.story.count).toBe(1);
+    });
+
+    it('should handle missing story points gracefully', () => {
+      const issues = [
+        { fields: { issuetype: { name: 'Story' } } },
+        { fields: { issuetype: { name: 'Bug' }, customfield_12310243: 2 } }
+      ];
+
+      const result = calculateTypeBreakdown(issues);
+
+      expect(result.typeBreakdown.story.count).toBe(1);
+      expect(result.typeBreakdown.story.storyPoints).toBe(0);
+    });
+
+    it('should handle empty issues array', () => {
+      const issues = [];
+
+      const result = calculateTypeBreakdown(issues);
+
+      expect(result.typeBreakdown.story.count).toBe(0);
+      expect(result.typeBreakdown.bug.count).toBe(0);
+      expect(result.bugToFeatureRatio).toBeNull();
+    });
+  });
+
+  describe('calculateDaysInProgress', () => {
+    it('should calculate days from created date when not using changelog', () => {
+      const issue = {
+        fields: {
+          created: '2026-02-25T00:00:00Z'
+        }
+      };
+
+      // Mock current date to 2026-03-02 (7 days later)
+      const mockNow = new Date('2026-03-02T00:00:00Z');
+      const createdDate = new Date(issue.fields.created);
+      const days = (mockNow - createdDate) / (1000 * 60 * 60 * 24);
+
+      expect(days).toBe(5);
+    });
+
+    it('should use changelog when available (dev-server)', () => {
+      const issue = {
+        fields: {
+          created: '2026-02-20T00:00:00Z'
+        },
+        changelog: {
+          histories: [
+            {
+              created: '2026-02-25T00:00:00Z',
+              items: [
+                {
+                  field: 'status',
+                  fromString: 'To Do',
+                  toString: 'In Progress'
+                }
+              ]
+            }
+          ]
+        }
+      };
+
+      // Should use changelog date (Feb 25) not created date (Feb 20)
+      const mockNow = new Date('2026-03-02T00:00:00Z');
+      const firstInProgressDate = new Date('2026-02-25T00:00:00Z');
+      const days = (mockNow - firstInProgressDate) / (1000 * 60 * 60 * 24);
+
+      expect(days).toBe(5);
+    });
+
+    it('should handle missing dates gracefully', () => {
+      const issue = {
+        fields: {}
+      };
+
+      const result = calculateDaysInProgress(issue, false);
+
+      expect(result).toBeNull();
+    });
+
+    it('should handle changelog with no In Progress transition', () => {
+      const issue = {
+        fields: {
+          created: '2026-02-25T00:00:00Z'
+        },
+        changelog: {
+          histories: [
+            {
+              created: '2026-02-26T00:00:00Z',
+              items: [
+                {
+                  field: 'status',
+                  fromString: 'To Do',
+                  toString: 'Backlog'
+                }
+              ]
+            }
+          ]
+        }
+      };
+
+      // Should fall back to created date when no In Progress transition found
+      const mockNow = new Date('2026-03-02T00:00:00Z');
+      const createdDate = new Date(issue.fields.created);
+      const days = (mockNow - createdDate) / (1000 * 60 * 60 * 24);
+
+      expect(days).toBe(5);
+    });
+
+    it('should calculate partial days correctly', () => {
+      const issue = {
+        fields: {
+          created: '2026-03-01T12:00:00Z'
+        }
+      };
+
+      // Mock current date to 2026-03-02 12:00:00 (exactly 1 day later)
+      const mockNow = new Date('2026-03-02T12:00:00Z');
+      const createdDate = new Date(issue.fields.created);
+      const days = (mockNow - createdDate) / (1000 * 60 * 60 * 24);
+
+      expect(days).toBe(1);
     });
   });
 });
