@@ -28,13 +28,22 @@ const COOLDOWN_DAYS = 7
  * @param {Array<string>} enabledRuleIds - List of currently enabled rule IDs
  * @returns {{ proposals: Array<Object>, updatedLedger: Object }}
  */
-function processViolations(violations, ledger, enabledRuleIds) {
+function processViolations(violations, ledger, enabledRuleIds, pendingProposals = []) {
   const now = new Date().toISOString()
   const proposals = []
   const updatedLedger = JSON.parse(JSON.stringify(ledger)) // deep clone
 
   // Build a set of current violation keys for enabled rules
   const activeViolationKeys = new Set()
+  const resolvedKeys = []
+
+  // Build set of existing pending/failed proposal keys to prevent duplicates
+  const existingProposalKeys = new Set()
+  for (const p of pendingProposals) {
+    if (p.status === 'pending' || p.status === 'failed') {
+      existingProposalKeys.add(`${p.issueKey}:${p.ruleId}`)
+    }
+  }
 
   let proposalIndex = 0
 
@@ -46,6 +55,11 @@ function processViolations(violations, ledger, enabledRuleIds) {
 
     const ledgerKey = `${violation.issueKey}:${violation.ruleId}`
     activeViolationKeys.add(ledgerKey)
+
+    // Skip if a pending or failed proposal already exists for this issue+rule
+    if (existingProposalKeys.has(ledgerKey)) {
+      continue
+    }
 
     const entry = updatedLedger[ledgerKey]
 
@@ -99,10 +113,11 @@ function processViolations(violations, ledger, enabledRuleIds) {
         resolved: true,
         resolvedAt: now
       }
+      resolvedKeys.push(ledgerKey)
     }
   }
 
-  return { proposals, updatedLedger }
+  return { proposals, updatedLedger, resolvedKeys }
 }
 
 /**

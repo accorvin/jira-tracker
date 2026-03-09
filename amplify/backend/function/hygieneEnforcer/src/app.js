@@ -235,25 +235,45 @@ async function runEnforcement() {
 
   console.log(`Found ${violations.length} enforceable violations`);
 
-  // 6. Apply dedup logic
-  const { proposals, updatedLedger } = processViolations(violations, ledger, enabledRuleIds);
+  // 6. Read existing pending proposals for dedup
+  const pendingData = (await readFromS3('hygiene/pending.json')) || { proposals: [] };
+
+  // 7. Apply dedup logic — pass existing proposals to prevent duplicates
+  const { proposals, updatedLedger, resolvedKeys } = processViolations(
+    violations, ledger, enabledRuleIds, pendingData.proposals
+  );
 
   console.log(`Generated ${proposals.length} new proposals after dedup`);
 
-  // 7. Read existing pending proposals and append new ones
-  const pendingData = (await readFromS3('hygiene/pending.json')) || { proposals: [] };
-  const existingPending = pendingData.proposals.filter(p => p.status === 'pending');
-  const mergedProposals = [...existingPending, ...proposals];
+  // 8. Auto-resolve pending proposals whose violations no longer exist
+  let autoResolved = 0;
+  for (const proposal of pendingData.proposals) {
+    if (proposal.status === 'pending') {
+      const key = `${proposal.issueKey}:${proposal.ruleId}`;
+      if (resolvedKeys.includes(key)) {
+        proposal.status = 'resolved';
+        proposal.resolvedAt = now;
+        autoResolved++;
+      }
+    }
+  }
+
+  if (autoResolved > 0) {
+    console.log(`Auto-resolved ${autoResolved} stale pending proposals`);
+  }
+
+  // 9. Append new proposals — keep all existing for status history
+  const mergedProposals = [...pendingData.proposals, ...proposals];
 
   await writeToS3('hygiene/pending.json', {
     proposals: mergedProposals,
     lastRunAt: now
   });
 
-  // 8. Update state ledger
+  // 10. Update state ledger
   await writeToS3('hygiene/state.json', updatedLedger);
 
-  // 9. Write history entry
+  // 11. Write history entry
   const historyKey = `hygiene/history/${now.replace(/[:.]/g, '-')}.json`;
   await writeToS3(historyKey, {
     runAt: now,
@@ -296,7 +316,7 @@ async function applyApprovedProposals(proposalIds) {
       continue;
     }
 
-    if (proposal.status !== 'pending') {
+    if (proposal.status !== 'pending' && proposal.status !== 'failed') {
       results.push({ id: proposalId, status: 'skipped', error: `Proposal is ${proposal.status}` });
       continue;
     }
@@ -314,6 +334,7 @@ async function applyApprovedProposals(proposalIds) {
 
       proposal.status = 'applied';
       proposal.appliedAt = new Date().toISOString();
+      delete proposal.error;
       results.push({ id: proposalId, status: 'applied' });
       console.log(`Applied proposal ${proposalId} for ${proposal.issueKey}`);
     } catch (error) {
@@ -326,6 +347,23 @@ async function applyApprovedProposals(proposalIds) {
 
   // Save updated proposals back
   await writeToS3('hygiene/pending.json', pendingData);
+
+  // Update ledger lastActionAt for successfully applied proposals
+  const appliedResults = results.filter(r => r.status === 'applied');
+  if (appliedResults.length > 0) {
+    const ledger = (await readFromS3('hygiene/state.json')) || {};
+    const appliedAt = new Date().toISOString();
+    for (const result of appliedResults) {
+      const proposal = pendingData.proposals.find(p => p.id === result.id);
+      if (proposal) {
+        const ledgerKey = `${proposal.issueKey}:${proposal.ruleId}`;
+        if (ledger[ledgerKey]) {
+          ledger[ledgerKey].lastActionAt = appliedAt;
+        }
+      }
+    }
+    await writeToS3('hygiene/state.json', ledger);
+  }
 
   return { results };
 }

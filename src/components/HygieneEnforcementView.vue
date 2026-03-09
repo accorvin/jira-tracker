@@ -169,6 +169,7 @@
               <option value="applied">Applied</option>
               <option value="failed">Failed</option>
               <option value="dismissed">Dismissed</option>
+              <option value="resolved">Resolved</option>
             </select>
             <span v-if="lastRunAt" class="text-xs text-gray-400">
               Last run: {{ formatDate(lastRunAt) }}
@@ -595,7 +596,7 @@ export default {
     },
 
     statusLabel(status) {
-      const labels = { pending: 'Pending', applied: 'Applied', failed: 'Failed', dismissed: 'Dismissed' }
+      const labels = { pending: 'Pending', applied: 'Applied', failed: 'Failed', dismissed: 'Dismissed', resolved: 'Resolved' }
       return labels[status] || status
     },
 
@@ -604,7 +605,8 @@ export default {
         pending: 'bg-amber-100 text-amber-700',
         applied: 'bg-green-100 text-green-700',
         failed: 'bg-red-100 text-red-700',
-        dismissed: 'bg-gray-100 text-gray-500'
+        dismissed: 'bg-gray-100 text-gray-500',
+        resolved: 'bg-blue-100 text-blue-700'
       }
       return classes[status] || 'bg-gray-100 text-gray-700'
     },

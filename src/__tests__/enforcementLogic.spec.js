@@ -373,6 +373,237 @@ describe('Enforcement Logic', () => {
       expect(result.updatedLedger[key].resolved).toBe(false)
     })
 
+    it('should return resolvedKeys for violations no longer detected', () => {
+      const violations = [] // No violations found
+      const ledger = {
+        'RHAISTRAT-100:missing-rice-score': {
+          issueKey: 'RHAISTRAT-100',
+          ruleId: 'missing-rice-score',
+          firstDetectedAt: '2026-02-10T08:00:00Z',
+          lastActionAt: '2026-02-10T08:00:00Z',
+          actionTaken: 'transition',
+          resolved: false,
+          resolvedAt: null
+        },
+        'RHAISTRAT-200:missing-assignee': {
+          issueKey: 'RHAISTRAT-200',
+          ruleId: 'missing-assignee',
+          firstDetectedAt: '2026-02-10T08:00:00Z',
+          lastActionAt: '2026-02-10T08:00:00Z',
+          actionTaken: 'comment-only',
+          resolved: false,
+          resolvedAt: null
+        }
+      }
+      const enabledRuleIds = ['missing-rice-score', 'missing-assignee']
+
+      const result = processViolations(violations, ledger, enabledRuleIds)
+
+      expect(result.resolvedKeys).toContain('RHAISTRAT-100:missing-rice-score')
+      expect(result.resolvedKeys).toContain('RHAISTRAT-200:missing-assignee')
+      expect(result.resolvedKeys).toHaveLength(2)
+    })
+
+    it('should not include already-resolved entries in resolvedKeys', () => {
+      const violations = []
+      const ledger = {
+        'RHAISTRAT-100:missing-rice-score': {
+          issueKey: 'RHAISTRAT-100',
+          ruleId: 'missing-rice-score',
+          firstDetectedAt: '2026-02-10T08:00:00Z',
+          lastActionAt: '2026-02-10T08:00:00Z',
+          actionTaken: 'transition',
+          resolved: true,
+          resolvedAt: '2026-02-15T08:00:00Z'
+        }
+      }
+      const enabledRuleIds = ['missing-rice-score']
+
+      const result = processViolations(violations, ledger, enabledRuleIds)
+
+      expect(result.resolvedKeys).toHaveLength(0)
+    })
+
+    it('should skip creating proposal when pending proposal already exists for same issue+rule', () => {
+      const violations = [
+        {
+          issueKey: 'RHAISTRAT-100',
+          issueSummary: 'Test Feature',
+          issueAssignee: 'John Doe',
+          issueStatus: 'In Progress',
+          ruleId: 'missing-rice-score',
+          ruleName: 'Missing RICE Score',
+          actionType: 'transition',
+          targetStatus: 'Refinement',
+          comment: 'Comment'
+        }
+      ]
+      const ledger = {}
+      const enabledRuleIds = ['missing-rice-score']
+      const pendingProposals = [
+        {
+          id: 'prop-existing',
+          issueKey: 'RHAISTRAT-100',
+          ruleId: 'missing-rice-score',
+          status: 'pending'
+        }
+      ]
+
+      const result = processViolations(violations, ledger, enabledRuleIds, pendingProposals)
+
+      expect(result.proposals).toHaveLength(0)
+    })
+
+    it('should skip creating proposal when failed proposal already exists for same issue+rule', () => {
+      const violations = [
+        {
+          issueKey: 'RHAISTRAT-100',
+          issueSummary: 'Test Feature',
+          issueAssignee: 'John Doe',
+          issueStatus: 'In Progress',
+          ruleId: 'missing-rice-score',
+          ruleName: 'Missing RICE Score',
+          actionType: 'transition',
+          targetStatus: 'Refinement',
+          comment: 'Comment'
+        }
+      ]
+      const ledger = {}
+      const enabledRuleIds = ['missing-rice-score']
+      const pendingProposals = [
+        {
+          id: 'prop-failed',
+          issueKey: 'RHAISTRAT-100',
+          ruleId: 'missing-rice-score',
+          status: 'failed',
+          error: 'Jira API error'
+        }
+      ]
+
+      const result = processViolations(violations, ledger, enabledRuleIds, pendingProposals)
+
+      expect(result.proposals).toHaveLength(0)
+    })
+
+    it('should NOT skip creating proposal when only applied/dismissed proposals exist for same issue+rule', () => {
+      const violations = [
+        {
+          issueKey: 'RHAISTRAT-100',
+          issueSummary: 'Test Feature',
+          issueAssignee: 'John Doe',
+          issueStatus: 'In Progress',
+          ruleId: 'missing-rice-score',
+          ruleName: 'Missing RICE Score',
+          actionType: 'transition',
+          targetStatus: 'Refinement',
+          comment: 'Comment'
+        }
+      ]
+      const ledger = {}
+      const enabledRuleIds = ['missing-rice-score']
+      const pendingProposals = [
+        {
+          id: 'prop-applied',
+          issueKey: 'RHAISTRAT-100',
+          ruleId: 'missing-rice-score',
+          status: 'applied'
+        },
+        {
+          id: 'prop-dismissed',
+          issueKey: 'RHAISTRAT-100',
+          ruleId: 'missing-rice-score',
+          status: 'dismissed'
+        }
+      ]
+
+      const result = processViolations(violations, ledger, enabledRuleIds, pendingProposals)
+
+      expect(result.proposals).toHaveLength(1)
+    })
+
+    it('should skip re-remind when pending proposal exists even after cooldown expires', () => {
+      const violations = [
+        {
+          issueKey: 'RHAISTRAT-100',
+          issueSummary: 'Test Feature',
+          issueAssignee: 'John Doe',
+          issueStatus: 'In Progress',
+          ruleId: 'missing-rice-score',
+          ruleName: 'Missing RICE Score',
+          actionType: 'transition',
+          targetStatus: 'Refinement',
+          comment: 'Comment'
+        }
+      ]
+      const ledger = {
+        'RHAISTRAT-100:missing-rice-score': {
+          issueKey: 'RHAISTRAT-100',
+          ruleId: 'missing-rice-score',
+          firstDetectedAt: '2026-02-01T08:00:00Z',
+          lastActionAt: '2026-02-10T08:00:00Z', // 13 days ago — well past cooldown
+          actionTaken: 'transition',
+          resolved: false,
+          resolvedAt: null
+        }
+      }
+      const enabledRuleIds = ['missing-rice-score']
+      const pendingProposals = [
+        {
+          id: 'prop-existing',
+          issueKey: 'RHAISTRAT-100',
+          ruleId: 'missing-rice-score',
+          status: 'pending'
+        }
+      ]
+
+      const result = processViolations(violations, ledger, enabledRuleIds, pendingProposals)
+
+      expect(result.proposals).toHaveLength(0)
+    })
+
+    it('should still create proposals for different issue+rule combos when one has a pending proposal', () => {
+      const violations = [
+        {
+          issueKey: 'RHAISTRAT-100',
+          issueSummary: 'Test Feature',
+          issueAssignee: null,
+          issueStatus: 'In Progress',
+          ruleId: 'missing-rice-score',
+          ruleName: 'Missing RICE Score',
+          actionType: 'transition',
+          targetStatus: 'Refinement',
+          comment: 'Comment 1'
+        },
+        {
+          issueKey: 'RHAISTRAT-100',
+          issueSummary: 'Test Feature',
+          issueAssignee: null,
+          issueStatus: 'In Progress',
+          ruleId: 'missing-assignee',
+          ruleName: 'Missing Assignee',
+          actionType: 'transition',
+          targetStatus: 'Refinement',
+          comment: 'Comment 2'
+        }
+      ]
+      const ledger = {}
+      const enabledRuleIds = ['missing-rice-score', 'missing-assignee']
+      const pendingProposals = [
+        {
+          id: 'prop-existing',
+          issueKey: 'RHAISTRAT-100',
+          ruleId: 'missing-rice-score',
+          status: 'pending'
+        }
+      ]
+
+      const result = processViolations(violations, ledger, enabledRuleIds, pendingProposals)
+
+      // Only missing-assignee should get a new proposal
+      expect(result.proposals).toHaveLength(1)
+      expect(result.proposals[0].ruleId).toBe('missing-assignee')
+    })
+
     it('should handle exactly 7-day boundary (skip, not re-remind)', () => {
       // lastActionAt is exactly 7 days ago — borderline
       // "lastActionAt < 7 days ago → SKIP" means we skip at exactly 7 days
