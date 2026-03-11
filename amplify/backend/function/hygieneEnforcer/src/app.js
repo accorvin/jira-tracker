@@ -262,7 +262,51 @@ async function runEnforcement() {
     console.log(`Auto-resolved ${autoResolved} stale pending proposals`);
   }
 
-  // 9. Append new proposals — keep all existing for status history
+  // 9. Determine which rules have auto-enforce enabled
+  const autoEnforceRuleIds = new Set();
+  if (config && config.rules) {
+    for (const [ruleId, ruleConfig] of Object.entries(config.rules)) {
+      if (ruleConfig.autoEnforce) autoEnforceRuleIds.add(ruleId);
+    }
+  }
+
+  // 10. Auto-apply proposals for auto-enforce rules
+  let autoApplied = 0;
+  let autoFailed = 0;
+  for (const proposal of proposals) {
+    if (!autoEnforceRuleIds.has(proposal.ruleId)) continue;
+
+    try {
+      if (proposal.actionType === 'transition' && proposal.targetStatus) {
+        await transitionIssue(proposal.issueKey, proposal.targetStatus);
+      }
+      if (proposal.comment) {
+        await addComment(proposal.issueKey, proposal.ruleId, proposal.ruleName, proposal.comment);
+      }
+      proposal.status = 'applied';
+      proposal.appliedAt = now;
+      proposal.autoApplied = true;
+      // Update ledger lastActionAt for auto-applied proposals
+      const ledgerKey = `${proposal.issueKey}:${proposal.ruleId}`;
+      if (updatedLedger[ledgerKey]) {
+        updatedLedger[ledgerKey].lastActionAt = now;
+      }
+      autoApplied++;
+      console.log(`Auto-applied proposal for ${proposal.issueKey} (rule: ${proposal.ruleId})`);
+    } catch (error) {
+      console.error(`Auto-apply failed for ${proposal.issueKey}:`, error);
+      proposal.status = 'failed';
+      proposal.error = error.message;
+      proposal.autoApplied = true;
+      autoFailed++;
+    }
+  }
+
+  if (autoApplied > 0 || autoFailed > 0) {
+    console.log(`Auto-enforcement: ${autoApplied} applied, ${autoFailed} failed`);
+  }
+
+  // 11. Append new proposals — keep all existing for status history
   const mergedProposals = [...pendingData.proposals, ...proposals];
 
   await writeToS3('hygiene/pending.json', {
@@ -270,16 +314,18 @@ async function runEnforcement() {
     lastRunAt: now
   });
 
-  // 10. Update state ledger
+  // 12. Update state ledger
   await writeToS3('hygiene/state.json', updatedLedger);
 
-  // 11. Write history entry
+  // 13. Write history entry
   const historyKey = `hygiene/history/${now.replace(/[:.]/g, '-')}.json`;
   await writeToS3(historyKey, {
     runAt: now,
     totalIssuesEvaluated: allIssues.length,
     totalViolationsFound: violations.length,
     newProposalsGenerated: proposals.length,
+    autoApplied,
+    autoFailed,
     enabledRules: enabledRuleIds,
     proposals: proposals
   });
@@ -291,6 +337,8 @@ async function runEnforcement() {
     totalIssues: allIssues.length,
     totalViolations: violations.length,
     proposalCount: proposals.length,
+    autoApplied,
+    autoFailed,
     enabledRules: enabledRuleIds
   };
 }

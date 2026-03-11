@@ -1,5 +1,5 @@
 /**
- * Tests for HygieneEnforcementView.vue — proposal status visibility.
+ * Tests for HygieneEnforcementView.vue — proposal status visibility and auto-enforcement.
  * TDD: tests written BEFORE implementation.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -337,6 +337,101 @@ describe('HygieneEnforcementView — Proposal Status', () => {
       const statusTexts = historyStatusBadges.map(b => b.text())
       expect(statusTexts).toContain('Applied')
       expect(statusTexts).toContain('Dismissed')
+    })
+  })
+
+  describe('Auto-enforce toggle', () => {
+    it('renders an Auto column header in the rules table', async () => {
+      mockGetHygieneConfig.mockResolvedValue({ rules: {} })
+
+      const wrapper = mount(HygieneEnforcementView)
+      await vi.waitFor(() => {
+        expect(wrapper.text()).toContain('Missing RICE Score')
+      })
+
+      const headers = wrapper.findAll('th')
+      const headerTexts = headers.map(h => h.text())
+      expect(headerTexts).toContain('Auto')
+    })
+
+    it('renders an auto-enforce toggle for each rule', async () => {
+      mockGetHygieneConfig.mockResolvedValue({
+        rules: { 'missing-rice-score': { enabled: true } }
+      })
+
+      const wrapper = mount(HygieneEnforcementView)
+      await vi.waitFor(() => {
+        expect(wrapper.find('[data-testid="auto-toggle-missing-rice-score"]').exists()).toBe(true)
+      })
+    })
+
+    it('auto-enforce toggle is disabled when rule is not enabled', async () => {
+      mockGetHygieneConfig.mockResolvedValue({
+        rules: { 'missing-rice-score': { enabled: false } }
+      })
+
+      const wrapper = mount(HygieneEnforcementView)
+      await vi.waitFor(() => {
+        expect(wrapper.find('[data-testid="auto-toggle-missing-rice-score"]').exists()).toBe(true)
+      })
+
+      const autoToggle = wrapper.find('[data-testid="auto-toggle-missing-rice-score"]')
+      expect(autoToggle.attributes('disabled')).toBeDefined()
+    })
+
+    it('auto-enforce toggle is enabled when rule is enabled', async () => {
+      mockGetHygieneConfig.mockResolvedValue({
+        rules: { 'missing-rice-score': { enabled: true } }
+      })
+
+      const wrapper = mount(HygieneEnforcementView)
+      await vi.waitFor(() => {
+        expect(wrapper.find('[data-testid="auto-toggle-missing-rice-score"]').exists()).toBe(true)
+      })
+
+      const autoToggle = wrapper.find('[data-testid="auto-toggle-missing-rice-score"]')
+      expect(autoToggle.attributes('disabled')).toBeUndefined()
+    })
+
+    it('saves autoEnforce config when auto toggle is clicked', async () => {
+      mockGetHygieneConfig.mockResolvedValue({
+        rules: { 'missing-rice-score': { enabled: true, autoEnforce: false } }
+      })
+      mockSaveHygieneConfig.mockResolvedValue({})
+
+      const wrapper = mount(HygieneEnforcementView)
+      await vi.waitFor(() => {
+        expect(wrapper.find('[data-testid="auto-toggle-missing-rice-score"]').exists()).toBe(true)
+      })
+
+      await wrapper.find('[data-testid="auto-toggle-missing-rice-score"]').trigger('click')
+
+      expect(mockSaveHygieneConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          'missing-rice-score': expect.objectContaining({ autoEnforce: true })
+        })
+      )
+    })
+
+    it('turns off autoEnforce when enabled is toggled off', async () => {
+      mockGetHygieneConfig.mockResolvedValue({
+        rules: { 'missing-rice-score': { enabled: true, autoEnforce: true } }
+      })
+      mockSaveHygieneConfig.mockResolvedValue({})
+
+      const wrapper = mount(HygieneEnforcementView)
+      await vi.waitFor(() => {
+        expect(wrapper.find('[data-testid="auto-toggle-missing-rice-score"]').exists()).toBe(true)
+      })
+
+      // Click the enabled toggle to disable the rule
+      await wrapper.find('[data-testid="enabled-toggle-missing-rice-score"]').trigger('click')
+
+      expect(mockSaveHygieneConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          'missing-rice-score': expect.objectContaining({ enabled: false, autoEnforce: false })
+        })
+      )
     })
   })
 })

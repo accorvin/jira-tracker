@@ -35,6 +35,7 @@
             <th class="text-left py-2 pr-4 font-medium text-gray-600">Type</th>
             <th class="text-left py-2 pr-4 font-medium text-gray-600">Description</th>
             <th class="text-center py-2 font-medium text-gray-600">Enabled</th>
+            <th class="text-center py-2 font-medium text-gray-600">Auto</th>
           </tr>
         </thead>
         <tbody>
@@ -63,6 +64,7 @@
             <td class="py-3 pr-4 text-gray-600">{{ rule.description }}</td>
             <td class="py-3 text-center">
               <button
+                :data-testid="`enabled-toggle-${rule.id}`"
                 @click="toggleRule(rule.id)"
                 class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
                 :class="isRuleEnabled(rule.id) ? 'bg-primary-600' : 'bg-gray-300'"
@@ -72,6 +74,21 @@
                 <span
                   class="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
                   :class="isRuleEnabled(rule.id) ? 'translate-x-4.5' : 'translate-x-0.5'"
+                />
+              </button>
+            </td>
+            <td class="py-3 text-center">
+              <button
+                :data-testid="`auto-toggle-${rule.id}`"
+                @click="toggleAutoEnforce(rule.id)"
+                class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                :class="isAutoEnforceEnabled(rule.id) ? 'bg-amber-500' : 'bg-gray-300'"
+                :disabled="configSaving || !isAdmin || !isRuleEnabled(rule.id)"
+                :title="!isRuleEnabled(rule.id) ? 'Enable rule first' : (!isAdmin ? 'Admin access required' : undefined)"
+              >
+                <span
+                  class="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform"
+                  :class="isAutoEnforceEnabled(rule.id) ? 'translate-x-4.5' : 'translate-x-0.5'"
                 />
               </button>
             </td>
@@ -523,11 +540,45 @@ export default {
       return this.ruleConfig[ruleId]?.enabled === true
     },
 
-    async toggleRule(ruleId) {
-      const current = this.isRuleEnabled(ruleId)
+    isAutoEnforceEnabled(ruleId) {
+      return this.ruleConfig[ruleId]?.autoEnforce === true
+    },
+
+    async toggleAutoEnforce(ruleId) {
+      if (!this.isRuleEnabled(ruleId)) return
+      const current = this.isAutoEnforceEnabled(ruleId)
+      const prev = { ...this.ruleConfig[ruleId] }
       this.ruleConfig = {
         ...this.ruleConfig,
-        [ruleId]: { enabled: !current }
+        [ruleId]: { ...prev, autoEnforce: !current }
+      }
+
+      this.configSaving = true
+      this.configError = null
+      try {
+        await saveHygieneConfig(this.ruleConfig)
+      } catch (error) {
+        this.ruleConfig = {
+          ...this.ruleConfig,
+          [ruleId]: prev
+        }
+        this.configError = error.message
+      } finally {
+        this.configSaving = false
+      }
+    },
+
+    async toggleRule(ruleId) {
+      const current = this.isRuleEnabled(ruleId)
+      const prev = { ...this.ruleConfig[ruleId] }
+      const updated = { ...prev, enabled: !current }
+      // Turn off autoEnforce when disabling
+      if (current) {
+        updated.autoEnforce = false
+      }
+      this.ruleConfig = {
+        ...this.ruleConfig,
+        [ruleId]: updated
       }
 
       this.configSaving = true
@@ -538,7 +589,7 @@ export default {
         // Revert on failure
         this.ruleConfig = {
           ...this.ruleConfig,
-          [ruleId]: { enabled: current }
+          [ruleId]: prev
         }
         this.configError = error.message
       } finally {
