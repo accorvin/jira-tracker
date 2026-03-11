@@ -71,8 +71,8 @@ describe('HygieneEnforcementView — Proposal Status', () => {
     mockGetHygieneHistory.mockResolvedValue({ runs: [] })
   })
 
-  describe('Proposals tab shows all statuses', () => {
-    it('displays proposals of all statuses, not just pending', async () => {
+  describe('Proposals tab shows only actionable proposals', () => {
+    it('shows pending and failed proposals only', async () => {
       const proposals = [
         createProposal({ id: 'p1', status: 'pending', issueKey: 'RHAISTRAT-101' }),
         createProposal({ id: 'p2', status: 'applied', issueKey: 'RHAISTRAT-102', appliedAt: '2026-03-02T10:00:00Z' }),
@@ -86,39 +86,14 @@ describe('HygieneEnforcementView — Proposal Status', () => {
         expect(wrapper.text()).toContain('RHAISTRAT-101')
       })
 
-      expect(wrapper.text()).toContain('RHAISTRAT-102')
+      // Pending and failed should be visible
       expect(wrapper.text()).toContain('RHAISTRAT-103')
-      expect(wrapper.text()).toContain('RHAISTRAT-104')
+      // Applied and dismissed should NOT be on proposals tab
+      expect(wrapper.text()).not.toContain('RHAISTRAT-102')
+      expect(wrapper.text()).not.toContain('RHAISTRAT-104')
     })
 
-    it('shows color-coded status badges for each proposal', async () => {
-      const proposals = [
-        createProposal({ id: 'p1', status: 'pending' }),
-        createProposal({ id: 'p2', status: 'applied' }),
-        createProposal({ id: 'p3', status: 'failed' }),
-        createProposal({ id: 'p4', status: 'dismissed' })
-      ]
-      mockGetHygienePending.mockResolvedValue({ proposals, lastRunAt: '2026-03-01T08:00:00Z' })
-
-      const wrapper = mount(HygieneEnforcementView)
-      await vi.waitFor(() => {
-        expect(wrapper.text()).toContain('Pending')
-      })
-
-      const statusBadges = wrapper.findAll('[data-testid="proposal-status-badge"]')
-      expect(statusBadges).toHaveLength(4)
-
-      // Check badge text content
-      const badgeTexts = statusBadges.map(b => b.text())
-      expect(badgeTexts).toContain('Pending')
-      expect(badgeTexts).toContain('Applied')
-      expect(badgeTexts).toContain('Failed')
-      expect(badgeTexts).toContain('Dismissed')
-    })
-  })
-
-  describe('Status filter', () => {
-    it('renders a status filter dropdown', async () => {
+    it('does not render a status filter dropdown', async () => {
       const proposals = [
         createProposal({ id: 'p1', status: 'pending' })
       ]
@@ -126,14 +101,15 @@ describe('HygieneEnforcementView — Proposal Status', () => {
 
       const wrapper = mount(HygieneEnforcementView)
       await vi.waitFor(() => {
-        expect(wrapper.find('[data-testid="status-filter"]').exists()).toBe(true)
+        expect(wrapper.text()).toContain('RHAISTRAT-100')
       })
+
+      expect(wrapper.find('[data-testid="status-filter"]').exists()).toBe(false)
     })
 
-    it('filters proposals by selected status', async () => {
+    it('shows checkboxes for all displayed proposals (pending and failed)', async () => {
       const proposals = [
         createProposal({ id: 'p1', status: 'pending', issueKey: 'RHAISTRAT-101' }),
-        createProposal({ id: 'p2', status: 'applied', issueKey: 'RHAISTRAT-102' }),
         createProposal({ id: 'p3', status: 'failed', issueKey: 'RHAISTRAT-103' })
       ]
       mockGetHygienePending.mockResolvedValue({ proposals, lastRunAt: '2026-03-01T08:00:00Z' })
@@ -143,49 +119,7 @@ describe('HygieneEnforcementView — Proposal Status', () => {
         expect(wrapper.text()).toContain('RHAISTRAT-101')
       })
 
-      // Filter to only applied
-      await wrapper.find('[data-testid="status-filter"]').setValue('applied')
-
-      expect(wrapper.text()).not.toContain('RHAISTRAT-101')
-      expect(wrapper.text()).toContain('RHAISTRAT-102')
-      expect(wrapper.text()).not.toContain('RHAISTRAT-103')
-    })
-
-    it('shows all proposals when status filter is set to "all"', async () => {
-      const proposals = [
-        createProposal({ id: 'p1', status: 'pending', issueKey: 'RHAISTRAT-101' }),
-        createProposal({ id: 'p2', status: 'applied', issueKey: 'RHAISTRAT-102' })
-      ]
-      mockGetHygienePending.mockResolvedValue({ proposals, lastRunAt: '2026-03-01T08:00:00Z' })
-
-      const wrapper = mount(HygieneEnforcementView)
-      await vi.waitFor(() => {
-        expect(wrapper.text()).toContain('RHAISTRAT-101')
-      })
-
-      // "all" is the default
-      expect(wrapper.text()).toContain('RHAISTRAT-101')
-      expect(wrapper.text()).toContain('RHAISTRAT-102')
-    })
-  })
-
-  describe('Selectable proposals', () => {
-    it('only shows checkboxes for pending and failed proposals', async () => {
-      const proposals = [
-        createProposal({ id: 'p1', status: 'pending', issueKey: 'RHAISTRAT-101' }),
-        createProposal({ id: 'p2', status: 'applied', issueKey: 'RHAISTRAT-102' }),
-        createProposal({ id: 'p3', status: 'failed', issueKey: 'RHAISTRAT-103' }),
-        createProposal({ id: 'p4', status: 'dismissed', issueKey: 'RHAISTRAT-104' })
-      ]
-      mockGetHygienePending.mockResolvedValue({ proposals, lastRunAt: '2026-03-01T08:00:00Z' })
-
-      const wrapper = mount(HygieneEnforcementView)
-      await vi.waitFor(() => {
-        expect(wrapper.text()).toContain('RHAISTRAT-101')
-      })
-
       const checkboxes = wrapper.findAll('[data-testid="proposal-checkbox"]')
-      // Only pending (p1) and failed (p3) should have checkboxes
       expect(checkboxes).toHaveLength(2)
     })
   })
@@ -287,10 +221,9 @@ describe('HygieneEnforcementView — Proposal Status', () => {
 
   describe('History tab shows proposal outcomes', () => {
     it('shows status for proposals in history run details', async () => {
-      // Set up proposals in allProposals (from pending.json) with known statuses
       const proposals = [
-        createProposal({ id: 'p1', status: 'applied', issueKey: 'RHAISTRAT-101' }),
-        createProposal({ id: 'p2', status: 'dismissed', issueKey: 'RHAISTRAT-102' })
+        createProposal({ id: 'p1', status: 'applied', issueKey: 'RHAISTRAT-101', appliedAt: '2026-03-01T10:00:00Z' }),
+        createProposal({ id: 'p2', status: 'dismissed', issueKey: 'RHAISTRAT-102', dismissedAt: '2026-03-01T11:00:00Z' })
       ]
       mockGetHygienePending.mockResolvedValue({ proposals, lastRunAt: '2026-03-01T08:00:00Z' })
 
@@ -310,11 +243,11 @@ describe('HygieneEnforcementView — Proposal Status', () => {
       mockGetHygieneHistory.mockResolvedValue({ runs: historyRuns })
 
       const wrapper = mount(HygieneEnforcementView)
+      // Wait for pending data to load, then switch to history tab
       await vi.waitFor(() => {
-        expect(wrapper.text()).toContain('RHAISTRAT-101')
+        expect(wrapper.findAll('nav button').find(b => b.text().includes('History'))).toBeTruthy()
       })
 
-      // Switch to history tab
       const historyTab = wrapper.findAll('nav button').find(b => b.text().includes('History'))
       await historyTab.trigger('click')
 
@@ -337,6 +270,96 @@ describe('HygieneEnforcementView — Proposal Status', () => {
       const statusTexts = historyStatusBadges.map(b => b.text())
       expect(statusTexts).toContain('Applied')
       expect(statusTexts).toContain('Dismissed')
+    })
+
+    it('shows summary counts per run', async () => {
+      const proposals = [
+        createProposal({ id: 'p1', status: 'applied', appliedAt: '2026-03-01T10:00:00Z' }),
+        createProposal({ id: 'p2', status: 'applied', appliedAt: '2026-03-01T10:00:00Z' }),
+        createProposal({ id: 'p3', status: 'failed', error: 'timeout' }),
+        createProposal({ id: 'p4', status: 'dismissed', dismissedAt: '2026-03-01T11:00:00Z' })
+      ]
+      mockGetHygienePending.mockResolvedValue({ proposals, lastRunAt: '2026-03-01T08:00:00Z' })
+
+      const historyRuns = [
+        {
+          runAt: '2026-03-01T08:00:00Z',
+          totalIssuesEvaluated: 10,
+          totalViolationsFound: 4,
+          newProposalsGenerated: 4,
+          enabledRules: ['missing-rice-score'],
+          proposals: [
+            { id: 'p1' }, { id: 'p2' }, { id: 'p3' }, { id: 'p4' }
+          ]
+        }
+      ]
+      mockGetHygieneHistory.mockResolvedValue({ runs: historyRuns })
+
+      const wrapper = mount(HygieneEnforcementView)
+      await vi.waitFor(() => {
+        expect(wrapper.findAll('nav button').find(b => b.text().includes('History'))).toBeTruthy()
+      })
+
+      const historyTab = wrapper.findAll('nav button').find(b => b.text().includes('History'))
+      await historyTab.trigger('click')
+
+      await vi.waitFor(() => {
+        expect(wrapper.text()).toContain('10 issues evaluated')
+      })
+
+      // Should show outcome summary counts on the run header
+      expect(wrapper.text()).toContain('2 applied')
+      expect(wrapper.text()).toContain('1 failed')
+      expect(wrapper.text()).toContain('1 dismissed')
+    })
+
+    it('shows timestamps for proposal outcomes in history details', async () => {
+      const proposals = [
+        createProposal({ id: 'p1', status: 'applied', issueKey: 'RHAISTRAT-101', appliedAt: '2026-03-01T10:30:00Z' }),
+        createProposal({ id: 'p2', status: 'dismissed', issueKey: 'RHAISTRAT-102', dismissedAt: '2026-03-01T11:45:00Z' })
+      ]
+      mockGetHygienePending.mockResolvedValue({ proposals, lastRunAt: '2026-03-01T08:00:00Z' })
+
+      const historyRuns = [
+        {
+          runAt: '2026-03-01T08:00:00Z',
+          totalIssuesEvaluated: 10,
+          totalViolationsFound: 2,
+          newProposalsGenerated: 2,
+          enabledRules: ['missing-rice-score'],
+          proposals: [
+            { id: 'p1', issueKey: 'RHAISTRAT-101', ruleName: 'Missing RICE Score', actionType: 'comment' },
+            { id: 'p2', issueKey: 'RHAISTRAT-102', ruleName: 'Missing RICE Score', actionType: 'comment' }
+          ]
+        }
+      ]
+      mockGetHygieneHistory.mockResolvedValue({ runs: historyRuns })
+
+      const wrapper = mount(HygieneEnforcementView)
+      await vi.waitFor(() => {
+        expect(wrapper.findAll('nav button').find(b => b.text().includes('History'))).toBeTruthy()
+      })
+
+      const historyTab = wrapper.findAll('nav button').find(b => b.text().includes('History'))
+      await historyTab.trigger('click')
+
+      await vi.waitFor(() => {
+        expect(wrapper.text()).toContain('10 issues evaluated')
+      })
+
+      const expandButton = wrapper.find('[data-testid="history-run-toggle-0"]')
+      await expandButton.trigger('click')
+
+      await vi.waitFor(() => {
+        expect(wrapper.text()).toContain('RHAISTRAT-101')
+      })
+
+      // Should show outcome timestamps
+      const outcomeTimestamps = wrapper.findAll('[data-testid="history-proposal-timestamp"]')
+      expect(outcomeTimestamps.length).toBeGreaterThanOrEqual(2)
+      // Timestamps should contain formatted date strings
+      const timestampTexts = outcomeTimestamps.map(t => t.text())
+      expect(timestampTexts.some(t => t.length > 0)).toBe(true)
     })
   })
 
