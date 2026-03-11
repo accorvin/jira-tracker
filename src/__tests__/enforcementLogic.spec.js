@@ -604,6 +604,95 @@ describe('Enforcement Logic', () => {
       expect(result.proposals[0].ruleId).toBe('missing-assignee')
     })
 
+    it('should NOT resolve ledger entries within cooldown (data noise protection)', () => {
+      // If a violation temporarily disappears but lastActionAt is within cooldown,
+      // don't mark it resolved — treat as data noise, not genuine resolution.
+      // Real-world case: issue's target release was briefly cleared, removing it
+      // from the dataset, then set again — shouldn't cause duplicate notifications.
+      const violations = [] // Violation temporarily not detected
+      const ledger = {
+        'RHAISTRAT-100:missing-rice-score': {
+          issueKey: 'RHAISTRAT-100',
+          ruleId: 'missing-rice-score',
+          firstDetectedAt: '2026-02-20T08:00:00Z',
+          lastActionAt: '2026-02-20T08:00:00Z', // 3 days ago — within cooldown
+          actionTaken: 'comment-only',
+          resolved: false,
+          resolvedAt: null
+        }
+      }
+      const enabledRuleIds = ['missing-rice-score']
+
+      const result = processViolations(violations, ledger, enabledRuleIds)
+
+      const key = 'RHAISTRAT-100:missing-rice-score'
+      expect(result.updatedLedger[key].resolved).toBe(false)
+      expect(result.updatedLedger[key].resolvedAt).toBeNull()
+      expect(result.resolvedKeys).not.toContain(key)
+    })
+
+    it('should still resolve ledger entries past cooldown when violation disappears', () => {
+      // After cooldown expires, if the violation is genuinely gone, resolve it
+      const violations = []
+      const ledger = {
+        'RHAISTRAT-100:missing-rice-score': {
+          issueKey: 'RHAISTRAT-100',
+          ruleId: 'missing-rice-score',
+          firstDetectedAt: '2026-02-10T08:00:00Z',
+          lastActionAt: '2026-02-10T08:00:00Z', // 13 days ago — past cooldown
+          actionTaken: 'comment-only',
+          resolved: false,
+          resolvedAt: null
+        }
+      }
+      const enabledRuleIds = ['missing-rice-score']
+
+      const result = processViolations(violations, ledger, enabledRuleIds)
+
+      const key = 'RHAISTRAT-100:missing-rice-score'
+      expect(result.updatedLedger[key].resolved).toBe(true)
+      expect(result.updatedLedger[key].resolvedAt).toBe(NOW)
+      expect(result.resolvedKeys).toContain(key)
+    })
+
+    it('should NOT treat regression within cooldown as actionable', () => {
+      // If an entry was marked resolved but lastActionAt is within cooldown,
+      // don't generate a new proposal — just un-resolve the entry
+      const violations = [
+        {
+          issueKey: 'RHAISTRAT-100',
+          issueSummary: 'Test Feature',
+          issueAssignee: 'John Doe',
+          issueStatus: 'In Progress',
+          ruleId: 'missing-rice-score',
+          ruleName: 'Missing RICE Score',
+          actionType: 'comment-only',
+          targetStatus: null,
+          comment: 'Comment'
+        }
+      ]
+      const ledger = {
+        'RHAISTRAT-100:missing-rice-score': {
+          issueKey: 'RHAISTRAT-100',
+          ruleId: 'missing-rice-score',
+          firstDetectedAt: '2026-02-20T08:00:00Z',
+          lastActionAt: '2026-02-20T08:00:00Z', // 3 days ago — within cooldown
+          actionTaken: 'comment-only',
+          resolved: true,
+          resolvedAt: '2026-02-21T08:00:00Z'
+        }
+      }
+      const enabledRuleIds = ['missing-rice-score']
+
+      const result = processViolations(violations, ledger, enabledRuleIds)
+
+      // Should NOT generate a proposal — cooldown still active
+      expect(result.proposals).toHaveLength(0)
+      // But should un-resolve the entry
+      const key = 'RHAISTRAT-100:missing-rice-score'
+      expect(result.updatedLedger[key].resolved).toBe(false)
+    })
+
     it('should handle exactly 7-day boundary (skip, not re-remind)', () => {
       // lastActionAt is exactly 7 days ago — borderline
       // "lastActionAt < 7 days ago → SKIP" means we skip at exactly 7 days

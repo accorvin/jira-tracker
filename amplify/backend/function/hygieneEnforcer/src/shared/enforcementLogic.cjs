@@ -14,14 +14,17 @@ const COOLDOWN_DAYS = 7
  * Dedup logic:
  *   For each (issueKey, ruleId) violation:
  *     1. Not in ledger (new)           → ACT, add to ledger
- *     2. In ledger, resolved=true      → ACT (regression), reset entry
+ *     2. In ledger, resolved=true:
+ *        a. lastActionAt < COOLDOWN_DAYS ago  → UN-RESOLVE only (data noise)
+ *        b. lastActionAt >= COOLDOWN_DAYS ago → ACT (regression), reset entry
  *     3. In ledger, resolved=false:
  *        a. lastActionAt < COOLDOWN_DAYS ago  → SKIP
  *        b. lastActionAt >= COOLDOWN_DAYS ago → ACT (re-remind)
  *
  *   For each ledger entry where the violation is no longer detected
  *   (and the rule is still enabled):
- *     → Set resolved=true, resolvedAt=now
+ *     a. lastActionAt < COOLDOWN_DAYS ago  → SKIP (data noise protection)
+ *     b. lastActionAt >= COOLDOWN_DAYS ago → Set resolved=true, resolvedAt=now
  *
  * @param {Array<Object>} violations - Detected violations with issue/rule metadata
  * @param {Object} ledger - Current state ledger keyed by "issueKey:ruleId"
@@ -77,14 +80,25 @@ function processViolations(violations, ledger, enabledRuleIds, pendingProposals 
       }
     } else if (entry.resolved) {
       // Case 2: Regression — was resolved, now violated again
-      proposals.push(createProposal(violation, now, proposalIndex++))
-      updatedLedger[ledgerKey] = {
-        ...entry,
-        firstDetectedAt: now,
-        lastActionAt: now,
-        actionTaken: violation.actionType,
-        resolved: false,
-        resolvedAt: null
+      const daysSinceLastAction = getDaysBetween(entry.lastActionAt, now)
+      if (daysSinceLastAction >= COOLDOWN_DAYS) {
+        // Genuine regression after cooldown — act
+        proposals.push(createProposal(violation, now, proposalIndex++))
+        updatedLedger[ledgerKey] = {
+          ...entry,
+          firstDetectedAt: now,
+          lastActionAt: now,
+          actionTaken: violation.actionType,
+          resolved: false,
+          resolvedAt: null
+        }
+      } else {
+        // Resolved within cooldown (data noise) — un-resolve but don't act
+        updatedLedger[ledgerKey] = {
+          ...entry,
+          resolved: false,
+          resolvedAt: null
+        }
       }
     } else {
       // Case 3: Existing unresolved entry — check cooldown
@@ -103,17 +117,22 @@ function processViolations(violations, ledger, enabledRuleIds, pendingProposals 
   }
 
   // Mark resolved: ledger entries whose violation is no longer detected
-  // Only for enabled rules
+  // Only for enabled rules, and only if past cooldown (to avoid false resolution
+  // from temporary data noise like target release being briefly cleared)
   for (const [ledgerKey, entry] of Object.entries(updatedLedger)) {
     if (entry.resolved) continue
     if (!enabledRuleIds.includes(entry.ruleId)) continue
     if (!activeViolationKeys.has(ledgerKey)) {
-      updatedLedger[ledgerKey] = {
-        ...entry,
-        resolved: true,
-        resolvedAt: now
+      const daysSinceLastAction = getDaysBetween(entry.lastActionAt, now)
+      if (daysSinceLastAction >= COOLDOWN_DAYS) {
+        updatedLedger[ledgerKey] = {
+          ...entry,
+          resolved: true,
+          resolvedAt: now
+        }
+        resolvedKeys.push(ledgerKey)
       }
-      resolvedKeys.push(ledgerKey)
+      // Within cooldown — don't resolve, treat as data noise
     }
   }
 
