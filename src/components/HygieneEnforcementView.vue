@@ -386,7 +386,15 @@
                 </thead>
                 <tbody>
                   <tr v-for="p in run.proposals" :key="p.id" class="border-b border-gray-50">
-                    <td class="py-1 pr-2 text-gray-700">{{ p.issueKey }}</td>
+                    <td class="py-1 pr-2">
+                      <a
+                        :href="`https://issues.redhat.com/browse/${p.issueKey}`"
+                        target="_blank"
+                        class="text-primary-600 hover:text-primary-800 font-medium"
+                      >
+                        {{ p.issueKey }}
+                      </a>
+                    </td>
                     <td class="py-1 pr-2 text-gray-600">{{ p.ruleName }}</td>
                     <td class="py-1 pr-2 text-gray-600">
                       {{ p.actionType === 'transition' ? `Move to ${p.targetStatus}` : 'Comment' }}

@@ -126,14 +126,15 @@ async function transitionIssue(issueKey, targetStatus) {
   console.log(`Transitioned ${issueKey} to ${targetStatus}`);
 }
 
-async function addComment(issueKey, ruleId, ruleName, commentBody) {
+async function addComment(issueKey, ruleId, ruleName, commentBody, assigneeUsername) {
   const token = await getJiraToken();
   const url = `${JIRA_HOST}/rest/api/2/issue/${issueKey}/comment`;
 
+  const mention = assigneeUsername ? `[~${assigneeUsername}] ` : '';
   const formattedComment = [
     `*Hygiene Enforcement — ${ruleName}*`,
     '',
-    commentBody,
+    `${mention}${commentBody}`,
     '',
     '----',
     `_Automated by RHOAI Release Tracker | Rule: ${ruleId} | [Learn more|https://red.ht/rhoai-jira-tracking?hygiene=help]_`
@@ -223,6 +224,7 @@ async function runEnforcement() {
         issueKey: issue.key,
         issueSummary: issue.summary,
         issueAssignee: issue.assignee || null,
+        issueAssigneeUsername: issue.assigneeUsername || null,
         issueStatus: issue.status,
         ruleId: rule.id,
         ruleName: rule.name,
@@ -281,7 +283,7 @@ async function runEnforcement() {
         await transitionIssue(proposal.issueKey, proposal.targetStatus);
       }
       if (proposal.comment) {
-        await addComment(proposal.issueKey, proposal.ruleId, proposal.ruleName, proposal.comment);
+        await addComment(proposal.issueKey, proposal.ruleId, proposal.ruleName, proposal.comment, proposal.issueAssigneeUsername);
       }
       proposal.status = 'applied';
       proposal.appliedAt = now;
@@ -377,7 +379,7 @@ async function applyApprovedProposals(proposalIds) {
 
       // Add comment
       if (proposal.comment) {
-        await addComment(proposal.issueKey, proposal.ruleId, proposal.ruleName, proposal.comment);
+        await addComment(proposal.issueKey, proposal.ruleId, proposal.ruleName, proposal.comment, proposal.issueAssigneeUsername);
       }
 
       proposal.status = 'applied';

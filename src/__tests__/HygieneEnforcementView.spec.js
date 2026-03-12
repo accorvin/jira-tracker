@@ -272,6 +272,50 @@ describe('HygieneEnforcementView — Proposal Status', () => {
       expect(statusTexts).toContain('Dismissed')
     })
 
+    it('renders issue keys as links to Jira in history details', async () => {
+      const proposals = [
+        createProposal({ id: 'p1', status: 'applied', issueKey: 'RHAISTRAT-101', appliedAt: '2026-03-01T10:00:00Z' })
+      ]
+      mockGetHygienePending.mockResolvedValue({ proposals, lastRunAt: '2026-03-01T08:00:00Z' })
+
+      const historyRuns = [
+        {
+          runAt: '2026-03-01T08:00:00Z',
+          totalIssuesEvaluated: 10,
+          totalViolationsFound: 1,
+          newProposalsGenerated: 1,
+          enabledRules: ['missing-rice-score'],
+          proposals: [
+            { id: 'p1', issueKey: 'RHAISTRAT-101', ruleName: 'Missing RICE Score', actionType: 'comment' }
+          ]
+        }
+      ]
+      mockGetHygieneHistory.mockResolvedValue({ runs: historyRuns })
+
+      const wrapper = mount(HygieneEnforcementView)
+      await vi.waitFor(() => {
+        expect(wrapper.findAll('nav button').find(b => b.text().includes('History'))).toBeTruthy()
+      })
+
+      const historyTab = wrapper.findAll('nav button').find(b => b.text().includes('History'))
+      await historyTab.trigger('click')
+
+      await vi.waitFor(() => {
+        expect(wrapper.text()).toContain('10 issues evaluated')
+      })
+
+      const expandButton = wrapper.find('[data-testid="history-run-toggle-0"]')
+      await expandButton.trigger('click')
+
+      await vi.waitFor(() => {
+        expect(wrapper.text()).toContain('RHAISTRAT-101')
+      })
+
+      const issueLink = wrapper.find('a[href="https://issues.redhat.com/browse/RHAISTRAT-101"]')
+      expect(issueLink.exists()).toBe(true)
+      expect(issueLink.text()).toBe('RHAISTRAT-101')
+    })
+
     it('shows summary counts per run', async () => {
       const proposals = [
         createProposal({ id: 'p1', status: 'applied', appliedAt: '2026-03-01T10:00:00Z' }),

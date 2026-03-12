@@ -148,6 +148,7 @@ function createProposal(violation, timestamp, index) {
     issueKey: violation.issueKey,
     issueSummary: violation.issueSummary,
     issueAssignee: violation.issueAssignee,
+    issueAssigneeUsername: violation.issueAssigneeUsername || null,
     issueStatus: violation.issueStatus,
     ruleId: violation.ruleId,
     ruleName: violation.ruleName,
