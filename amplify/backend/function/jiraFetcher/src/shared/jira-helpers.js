@@ -260,6 +260,7 @@ function transformIssue(issue, rfeMap = {}) {
     summary: fields.summary,
     issueType: fields.issuetype?.name || null,
     assignee: fields.assignee?.displayName || null,
+    assigneeUsername: fields.assignee?.name || null,
     status: fields.status?.name || null,
     team: serializeField(fields[CUSTOM_FIELDS.team]),
     components: components,
