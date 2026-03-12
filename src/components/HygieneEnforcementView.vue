@@ -285,6 +285,7 @@
                       <div class="border-t border-gray-100 pt-2">
                         <strong>*Hygiene Enforcement &mdash; {{ proposal.ruleName }}*</strong>
                         <br><br>
+                        <span v-if="proposal.issueAssigneeUsername" class="text-blue-600">[~{{ proposal.issueAssigneeUsername }}]</span>
                         {{ proposal.comment }}
                         <br><br>
                         <span class="text-gray-400">----</span>
