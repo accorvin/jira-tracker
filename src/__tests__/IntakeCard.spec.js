@@ -27,7 +27,7 @@ describe('IntakeCard', () => {
       approvalDate: '2025-12-01T10:00:00Z',
       status: 'Approved'
     },
-    url: 'https://issues.redhat.com/browse/RHOAIENG-123'
+    url: 'https://redhat.atlassian.net/browse/RHOAIENG-123'
   }
 
   describe('Basic rendering', () => {
@@ -284,7 +284,7 @@ describe('IntakeCard', () => {
 
       const rfeLink = wrapper.find('a[href*="RHAIRFE-456"]')
       expect(rfeLink.exists()).toBe(true)
-      expect(rfeLink.attributes('href')).toBe('https://issues.redhat.com/browse/RHAIRFE-456')
+      expect(rfeLink.attributes('href')).toBe('https://redhat.atlassian.net/browse/RHAIRFE-456')
       expect(rfeLink.attributes('target')).toBe('_blank')
     })
 

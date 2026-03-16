@@ -148,7 +148,7 @@ const props = defineProps({
 
 const rfeUrl = computed(() => {
   if (!props.feature.linkedRfe) return ''
-  return `https://issues.redhat.com/browse/${props.feature.linkedRfe.key}`
+  return `https://redhat.atlassian.net/browse/${props.feature.linkedRfe.key}`
 })
 
 const hasAnyRiceValues = computed(() => {

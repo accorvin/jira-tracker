@@ -28,6 +28,11 @@
       "Type": "String",
       "Description": "SSM Parameter Store path for Jira API token",
       "Default": "/jira-tracker-app/dev/jira-token"
+    },
+    "jiraEmailParameterName": {
+      "Type": "String",
+      "Description": "SSM Parameter Store path for Jira email",
+      "Default": "/jira-tracker-app/dev/jira-email"
     }
   },
   "Conditions": {
@@ -100,6 +105,9 @@
             },
             "JIRA_TOKEN_PARAMETER_NAME": {
               "Ref": "jiraTokenParameterName"
+            },
+            "JIRA_EMAIL_PARAMETER_NAME": {
+              "Ref": "jiraEmailParameterName"
             },
             "S3_BUCKET": {
               "Ref": "s3Bucket"

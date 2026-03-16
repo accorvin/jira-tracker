@@ -1,5 +1,5 @@
 {
   "s3Bucket": "acorvin-jira-tracker-issues-dev",
-  "jiraHost": "https://issues.redhat.com",
+  "jiraHost": "https://redhat.atlassian.net",
   "firebaseProjectId": "ai-engineering-jira-tracking"
 }

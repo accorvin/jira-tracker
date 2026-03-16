@@ -18,7 +18,7 @@ describe('KanbanColumn', () => {
       team: 'Fine Tuning',
       releaseType: 'GA',
       targetRelease: 'rhoai-3.2',
-      url: 'https://issues.redhat.com/browse/RHOAIENG-123'
+      url: 'https://redhat.atlassian.net/browse/RHOAIENG-123'
     },
     {
       key: 'RHOAIENG-124',
@@ -29,7 +29,7 @@ describe('KanbanColumn', () => {
       team: 'KubeRay',
       releaseType: 'GA',
       targetRelease: 'rhoai-3.2',
-      url: 'https://issues.redhat.com/browse/RHOAIENG-124'
+      url: 'https://redhat.atlassian.net/browse/RHOAIENG-124'
     }
   ]
 

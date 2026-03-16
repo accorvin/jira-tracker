@@ -3,26 +3,26 @@
  * Used by both the Lambda (app.js) and the local dev server.
  */
 
-const JIRA_HOST = process.env.JIRA_HOST || 'https://issues.redhat.com';
-const PLAN_ID = 2423;
+const JIRA_HOST = process.env.JIRA_HOST || 'https://redhat.atlassian.net';
+const PLAN_FILTER_ID = 13560;
 
 const PROJECTS = ['RHAISTRAT', 'RHOAIENG'];
 const ISSUE_TYPES = ['Feature', 'Initiative'];
 
 const CUSTOM_FIELDS = {
-  team: 'customfield_12313240',
-  releaseType: 'customfield_12320840',
-  targetRelease: 'customfield_12319940',
-  statusSummary: 'customfield_12320841',
-  colorStatus: 'customfield_12320845',
-  docsRequired: 'customfield_12324040',
-  targetEnd: 'customfield_12313942',
+  team: 'customfield_10001',
+  releaseType: 'customfield_10851',
+  targetRelease: 'customfield_10855',
+  statusSummary: 'customfield_10814',
+  colorStatus: 'customfield_10712',
+  docsRequired: 'customfield_10756',
+  targetEnd: 'customfield_10023',
   // RICE scoring fields
-  reach: 'customfield_12320846',
-  impact: 'customfield_12320740',
-  confidence: 'customfield_12320847',
-  effort: 'customfield_12320848',
-  riceScore: 'customfield_12326242'
+  reach: 'customfield_10862',
+  impact: 'customfield_10861',
+  confidence: 'customfield_10838',
+  effort: 'customfield_10637',
+  riceScore: 'customfield_10864'
 };
 
 /**
@@ -54,7 +54,7 @@ function buildIntakeFeaturesJqlQuery() {
  * Build JQL query for plan rankings
  */
 function buildPlanJqlQuery() {
-  return `issuekey in issuesInPlan(${PLAN_ID}) ORDER BY Rank ASC`;
+  return `filter = ${PLAN_FILTER_ID} ORDER BY Rank ASC`;
 }
 
 /**
@@ -260,7 +260,7 @@ function transformIssue(issue, rfeMap = {}) {
     summary: fields.summary,
     issueType: fields.issuetype?.name || null,
     assignee: fields.assignee?.displayName || null,
-    assigneeUsername: fields.assignee?.name || null,
+    assigneeUsername: fields.assignee?.accountId || null,
     status: fields.status?.name || null,
     team: serializeField(fields[CUSTOM_FIELDS.team]),
     components: components,
@@ -277,7 +277,7 @@ function transformIssue(issue, rfeMap = {}) {
     riceStatus: computeRiceStatus(fields),
     linkedRfeKey: linkedRfeKey,
     linkedRfeApproved: linkedRfeApproved,
-    url: `https://issues.redhat.com/browse/${issue.key}`
+    url: `https://redhat.atlassian.net/browse/${issue.key}`
   };
 }
 
@@ -317,7 +317,7 @@ function transformIntakeFeature(issue, rfeMap) {
     riceScore: fields[CUSTOM_FIELDS.riceScore],
     riceStatus: computeRiceStatus(fields),
     linkedRfe: linkedRfe,
-    url: `https://issues.redhat.com/browse/${issue.key}`
+    url: `https://redhat.atlassian.net/browse/${issue.key}`
   };
 }
 
@@ -384,7 +384,7 @@ function buildRfeFields() {
 
 module.exports = {
   JIRA_HOST,
-  PLAN_ID,
+  PLAN_FILTER_ID,
   PROJECTS,
   ISSUE_TYPES,
   CUSTOM_FIELDS,

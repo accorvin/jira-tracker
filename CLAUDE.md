@@ -67,21 +67,24 @@ rh-aws-saml-login iaps-rhods-odh-dev/585132637328-rhoai-dev -- amplify publish
 ## Key Patterns
 
 ### Status Mapping (Kanban Columns)
-- **To Do:** New, Backlog
+- **Backlog:** New, Backlog
+- **To Do:** To Do
 - **In Refinement:** Refinement
 - **In Progress:** In Progress, Review, Testing
+- **Release Pending:** Release Pending
 - **Done:** Resolved, Closed
 
-### Custom Field Mapping
+### Custom Field Mapping (Jira Cloud)
 Always use human-readable names in the UI and JSON:
-- `customfield_12313240` → "Team"
-- `customfield_12320840` → "Release Type"
-- `customfield_12319940` → "Target Release"
+- `customfield_10001` → "Team"
+- `customfield_10851` → "Release Type"
+- `customfield_10855` → "Target Version"
 
 ### Jira Configuration
-- Host: `https://issues.redhat.com`
-- Token: Stored in AWS SSM Parameter Store at `/jira-tracker-app/dev/jira-token`
-- Issue URL pattern: `https://issues.redhat.com/browse/{KEY}`
+- Host: `https://redhat.atlassian.net` (Jira Cloud)
+- Auth: Basic auth (email:api_token base64-encoded)
+- Credentials: Stored in AWS SSM Parameter Store
+- Issue URL pattern: `https://redhat.atlassian.net/browse/{KEY}`
 
 ### Jira Query Filters
 - Projects: RHAISTRAT, RHOAIENG

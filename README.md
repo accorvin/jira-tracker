@@ -86,7 +86,7 @@ You'll need the following tools and access:
 | **Amplify CLI** | AWS Amplify deployment tool |
 | **Git** | Version control |
 | **@redhat.com email** | Required for Firebase authentication |
-| **Red Hat Jira access** | Access to issues.redhat.com |
+| **Red Hat Jira access** | Access to redhat.atlassian.net |
 
 ### Step 1: Install Required Tools
 
@@ -168,16 +168,22 @@ rh-aws-saml-login iaps-rhods-odh-dev -- aws ssm get-parameter \
 
 If it doesn't exist (or you need your own), create one:
 
-1. Go to https://issues.redhat.com/secure/ViewProfile.jspa
-2. Click **Personal Access Tokens** in the left sidebar
-3. Create a new token with appropriate permissions
-4. Store it in AWS SSM:
+1. Go to https://id.atlassian.com/manage-profile/security/api-tokens
+2. Click **Create API token**
+3. Store the token and your email in AWS SSM:
 
 ```bash
 rh-aws-saml-login iaps-rhods-odh-dev -- aws ssm put-parameter \
   --name "/jira-tracker-app/dev/jira-token" \
-  --description "Jira API token for jira-tracker-app dev environment" \
-  --value "YOUR_JIRA_TOKEN" \
+  --description "Jira Cloud API token for jira-tracker-app dev environment" \
+  --value "YOUR_JIRA_API_TOKEN" \
+  --type "SecureString" \
+  --region us-east-1
+
+rh-aws-saml-login iaps-rhods-odh-dev -- aws ssm put-parameter \
+  --name "/jira-tracker-app/dev/jira-email" \
+  --description "Jira Cloud email for jira-tracker-app dev environment" \
+  --value "YOUR_EMAIL@redhat.com" \
   --type "SecureString" \
   --region us-east-1
 ```

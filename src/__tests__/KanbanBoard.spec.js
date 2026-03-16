@@ -18,7 +18,7 @@ describe('KanbanBoard', () => {
       team: 'Team A',
       releaseType: 'GA',
       targetRelease: 'rhoai-3.2',
-      url: 'https://issues.redhat.com/browse/ISSUE-1'
+      url: 'https://redhat.atlassian.net/browse/ISSUE-1'
     },
     {
       key: 'ISSUE-2',
@@ -29,7 +29,7 @@ describe('KanbanBoard', () => {
       team: 'Team B',
       releaseType: 'GA',
       targetRelease: 'rhoai-3.2',
-      url: 'https://issues.redhat.com/browse/ISSUE-2'
+      url: 'https://redhat.atlassian.net/browse/ISSUE-2'
     },
     {
       key: 'ISSUE-3',
@@ -40,7 +40,7 @@ describe('KanbanBoard', () => {
       team: 'Team A',
       releaseType: 'GA',
       targetRelease: 'rhoai-3.2',
-      url: 'https://issues.redhat.com/browse/ISSUE-3'
+      url: 'https://redhat.atlassian.net/browse/ISSUE-3'
     },
     {
       key: 'ISSUE-4',
@@ -51,7 +51,7 @@ describe('KanbanBoard', () => {
       team: 'Team B',
       releaseType: 'GA',
       targetRelease: 'rhoai-3.2',
-      url: 'https://issues.redhat.com/browse/ISSUE-4'
+      url: 'https://redhat.atlassian.net/browse/ISSUE-4'
     },
     {
       key: 'ISSUE-5',
@@ -62,7 +62,7 @@ describe('KanbanBoard', () => {
       team: 'Team A',
       releaseType: 'GA',
       targetRelease: 'rhoai-3.2',
-      url: 'https://issues.redhat.com/browse/ISSUE-5'
+      url: 'https://redhat.atlassian.net/browse/ISSUE-5'
     },
     {
       key: 'ISSUE-6',
@@ -73,7 +73,7 @@ describe('KanbanBoard', () => {
       team: 'Team B',
       releaseType: 'GA',
       targetRelease: 'rhoai-3.2',
-      url: 'https://issues.redhat.com/browse/ISSUE-6'
+      url: 'https://redhat.atlassian.net/browse/ISSUE-6'
     },
     {
       key: 'ISSUE-7',
@@ -84,7 +84,7 @@ describe('KanbanBoard', () => {
       team: 'Team A',
       releaseType: 'GA',
       targetRelease: 'rhoai-3.2',
-      url: 'https://issues.redhat.com/browse/ISSUE-7'
+      url: 'https://redhat.atlassian.net/browse/ISSUE-7'
     },
     {
       key: 'ISSUE-8',
@@ -95,7 +95,7 @@ describe('KanbanBoard', () => {
       team: 'Team B',
       releaseType: 'GA',
       targetRelease: 'rhoai-3.2',
-      url: 'https://issues.redhat.com/browse/ISSUE-8'
+      url: 'https://redhat.atlassian.net/browse/ISSUE-8'
     }
   ]
 
@@ -178,7 +178,7 @@ describe('KanbanBoard', () => {
         team: 'Team A',
         releaseType: 'GA',
         targetRelease: 'rhoai-3.2',
-        url: 'https://issues.redhat.com/browse/ISSUE-9'
+        url: 'https://redhat.atlassian.net/browse/ISSUE-9'
       }
     ]
 

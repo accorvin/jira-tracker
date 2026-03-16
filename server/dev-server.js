@@ -10,7 +10,7 @@ const { readFromStorage, writeToStorage } = require('./storage');
 
 const {
   JIRA_HOST,
-  PLAN_ID,
+  PLAN_FILTER_ID,
   buildJqlQuery,
   buildIntakeFeaturesJqlQuery,
   buildPlanJqlQuery,
@@ -40,7 +40,19 @@ app.use(function(req, res, next) {
 
 const PORT = process.env.API_PORT || 3001;
 const JIRA_TOKEN = process.env.JIRA_TOKEN;
+const JIRA_EMAIL = process.env.JIRA_EMAIL;
 const jiraHost = process.env.JIRA_HOST || JIRA_HOST;
+
+function getJiraAuthHeader() {
+  if (!JIRA_TOKEN) {
+    throw new Error('JIRA_TOKEN environment variable is not set. Add it to your .env file.');
+  }
+  if (!JIRA_EMAIL) {
+    throw new Error('JIRA_EMAIL environment variable is not set. Add it to your .env file.');
+  }
+  const credentials = Buffer.from(`${JIRA_EMAIL}:${JIRA_TOKEN}`).toString('base64');
+  return `Basic ${credentials}`;
+}
 
 // ---------------------------------------------------------------------------
 // Reader routes (read JSON from data/ directory)
@@ -97,6 +109,25 @@ app.get('/api/plan-rankings', function(req, res) {
     return res.status(500).json({ error: 'Plan rankings data not found. Please refresh to fetch data from Jira.' });
   }
   res.json(data);
+});
+
+// ---------------------------------------------------------------------------
+// Admin routes (mock for local dev — everyone is admin)
+// ---------------------------------------------------------------------------
+
+app.get('/api/admins', function(req, res) {
+  const data = readFromStorage('admins.json');
+  const admins = data ? data.admins : ['dev@redhat.com'];
+  res.json({ isAdmin: true, admins });
+});
+
+app.post('/api/admins', function(req, res) {
+  const { admins } = req.body;
+  if (!admins || !Array.isArray(admins)) {
+    return res.status(400).json({ error: 'Request must include "admins" array' });
+  }
+  writeToStorage('admins.json', { admins });
+  res.json({ success: true, admins });
 });
 
 // ---------------------------------------------------------------------------
@@ -318,27 +349,27 @@ app.post('/api/hygiene/run', function(req, res) {
 // ---------------------------------------------------------------------------
 
 async function fetchPaginated(jql, fields, { expand } = {}) {
-  if (!JIRA_TOKEN) {
-    throw new Error('JIRA_TOKEN environment variable is not set. Add it to your .env file.');
-  }
+  const authHeader = getJiraAuthHeader();
 
   const issues = [];
-  let startAt = 0;
-  const maxResults = 100;
+  let nextPageToken = null;
+  const maxResults = 50;
 
   while (true) {
-    const url = new URL(`${jiraHost}/rest/api/2/search`);
+    const url = new URL(`${jiraHost}/rest/api/3/search/jql`);
     url.searchParams.set('jql', jql);
-    url.searchParams.set('startAt', startAt.toString());
     url.searchParams.set('maxResults', maxResults.toString());
     url.searchParams.set('fields', fields);
     if (expand) {
       url.searchParams.set('expand', expand);
     }
+    if (nextPageToken) {
+      url.searchParams.set('nextPageToken', nextPageToken);
+    }
 
     const response = await fetch(url.toString(), {
       headers: {
-        'Authorization': `Bearer ${JIRA_TOKEN}`,
+        'Authorization': authHeader,
         'Accept': 'application/json'
       }
     });
@@ -351,8 +382,9 @@ async function fetchPaginated(jql, fields, { expand } = {}) {
     const data = await response.json();
     if (!data.issues || data.issues.length === 0) break;
     issues.push(...data.issues);
-    if (data.issues.length < maxResults) break;
-    startAt += maxResults;
+    if (data.isLast) break;
+    nextPageToken = data.nextPageToken;
+    if (!nextPageToken) break;
   }
 
   return issues;
@@ -361,17 +393,18 @@ async function fetchPaginated(jql, fields, { expand } = {}) {
 async function fetchRfesByKeys(rfeKeys) {
   if (!rfeKeys || rfeKeys.length === 0) return {};
 
+  const authHeader = getJiraAuthHeader();
   const jql = buildRfeJql(rfeKeys);
   const fields = buildRfeFields();
 
-  const url = new URL(`${jiraHost}/rest/api/2/search`);
+  const url = new URL(`${jiraHost}/rest/api/3/search/jql`);
   url.searchParams.set('jql', jql);
   url.searchParams.set('maxResults', '100');
   url.searchParams.set('fields', fields);
 
   const response = await fetch(url.toString(), {
     headers: {
-      'Authorization': `Bearer ${JIRA_TOKEN}`,
+      'Authorization': authHeader,
       'Accept': 'application/json'
     }
   });
@@ -503,7 +536,7 @@ app.post('/api/refresh', async function(req, res) {
         buildPlanFields(),
         { expand: 'renderedFields' }
       );
-      console.log(`Found ${rawPlanIssues.length} issues in plan ${PLAN_ID}`);
+      console.log(`Found ${rawPlanIssues.length} issues in plan filter ${PLAN_FILTER_ID}`);
 
       const planRfeKeys = extractRfeKeys(rawPlanIssues);
       let planRfeMap = {};
@@ -518,7 +551,7 @@ app.post('/api/refresh', async function(req, res) {
 
       const planOutput = {
         lastUpdated: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
-        planId: PLAN_ID,
+        planFilterId: PLAN_FILTER_ID,
         totalCount: rankedIssues.length,
         issues: rankedIssues
       };
@@ -550,6 +583,7 @@ app.options('/api/*', function(req, res) {
 
 app.listen(PORT, function() {
   console.log(`\n  Local dev server running at http://localhost:${PORT}`);
+  console.log(`  JIRA_EMAIL: ${JIRA_EMAIL ? 'set' : 'NOT SET (refresh will fail)'}`);
   console.log(`  JIRA_TOKEN: ${JIRA_TOKEN ? 'set' : 'NOT SET (refresh will fail)'}`);
   console.log(`  Jira host:  ${jiraHost}\n`);
 });

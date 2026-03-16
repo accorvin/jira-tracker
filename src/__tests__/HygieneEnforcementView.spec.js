@@ -311,7 +311,7 @@ describe('HygieneEnforcementView — Proposal Status', () => {
         expect(wrapper.text()).toContain('RHAISTRAT-101')
       })
 
-      const issueLink = wrapper.find('a[href="https://issues.redhat.com/browse/RHAISTRAT-101"]')
+      const issueLink = wrapper.find('a[href="https://redhat.atlassian.net/browse/RHAISTRAT-101"]')
       expect(issueLink.exists()).toBe(true)
       expect(issueLink.text()).toBe('RHAISTRAT-101')
     })

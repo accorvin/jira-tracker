@@ -17,7 +17,7 @@ describe('IssueCard', () => {
     releaseType: 'GA',
     targetRelease: ['rhoai-3.2'],
     statusSummary: 'Working on implementation. Made good progress on API endpoints.',
-    url: 'https://issues.redhat.com/browse/RHOAIENG-123'
+    url: 'https://redhat.atlassian.net/browse/RHOAIENG-123'
   }
 
   it('renders issue key as link to Jira URL', () => {

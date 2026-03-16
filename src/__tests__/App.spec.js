@@ -79,7 +79,7 @@ describe('App', () => {
         components: ['AI Pipelines'],
         releaseType: 'GA',
         targetRelease: 'rhoai-3.2',
-        url: 'https://issues.redhat.com/browse/ISSUE-1'
+        url: 'https://redhat.atlassian.net/browse/ISSUE-1'
       }
     ]
   }
@@ -224,7 +224,7 @@ describe('App', () => {
           components: ['AI Pipelines'],
           releaseType: 'GA',
           targetRelease: 'rhoai-3.2',
-          url: 'https://issues.redhat.com/browse/ISSUE-1'
+          url: 'https://redhat.atlassian.net/browse/ISSUE-1'
         },
         {
           key: 'ISSUE-2',
@@ -236,7 +236,7 @@ describe('App', () => {
           components: ['Training Ray'],
           releaseType: 'GA',
           targetRelease: 'rhoai-3.2',
-          url: 'https://issues.redhat.com/browse/ISSUE-2'
+          url: 'https://redhat.atlassian.net/browse/ISSUE-2'
         }
       ]
     }

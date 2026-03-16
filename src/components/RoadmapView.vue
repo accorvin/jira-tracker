@@ -72,6 +72,12 @@ export default {
       if (oldVal && !newVal) {
         this.loadIssues()
       }
+    },
+    releases(newVal) {
+      // Reload when releases become available (async auth/load race)
+      if (newVal && newVal.length > 0 && this.allIssues.length === 0) {
+        this.loadIssues()
+      }
     }
   },
   mounted() {

@@ -16,26 +16,37 @@ const AWS_REGION = process.env.AWS_REGION || process.env.REGION || 'us-east-1';
 const s3Client = new S3Client({ region: AWS_REGION });
 const ssmClient = new SSMClient({ region: AWS_REGION });
 
-const JIRA_HOST = process.env.JIRA_HOST || 'https://issues.redhat.com';
+const JIRA_HOST = process.env.JIRA_HOST || 'https://redhat.atlassian.net';
 const S3_BUCKET = process.env.S3_BUCKET;
 
 let JIRA_TOKEN = null;
+let JIRA_EMAIL = null;
 
 // ---------------------------------------------------------------------------
 // AWS helpers
 // ---------------------------------------------------------------------------
 
-async function getJiraToken() {
-  if (JIRA_TOKEN) return JIRA_TOKEN;
-
-  const parameterName = process.env.JIRA_TOKEN_PARAMETER_NAME;
-  if (!parameterName) throw new Error('JIRA_TOKEN_PARAMETER_NAME environment variable is not set');
-
+async function getSSMParameter(parameterName) {
   const command = new GetParameterCommand({ Name: parameterName, WithDecryption: true });
   const response = await ssmClient.send(command);
-  JIRA_TOKEN = response.Parameter.Value;
-  console.log('Successfully fetched Jira token from SSM Parameter Store');
-  return JIRA_TOKEN;
+  return response.Parameter.Value;
+}
+
+async function getJiraAuthHeader() {
+  if (!JIRA_TOKEN) {
+    const tokenParamName = process.env.JIRA_TOKEN_PARAMETER_NAME;
+    if (!tokenParamName) throw new Error('JIRA_TOKEN_PARAMETER_NAME environment variable is not set');
+    JIRA_TOKEN = await getSSMParameter(tokenParamName);
+    console.log('Successfully fetched Jira token from SSM Parameter Store');
+  }
+  if (!JIRA_EMAIL) {
+    const emailParamName = process.env.JIRA_EMAIL_PARAMETER_NAME;
+    if (!emailParamName) throw new Error('JIRA_EMAIL_PARAMETER_NAME environment variable is not set');
+    JIRA_EMAIL = await getSSMParameter(emailParamName);
+    console.log('Successfully fetched Jira email from SSM Parameter Store');
+  }
+  const credentials = Buffer.from(`${JIRA_EMAIL}:${JIRA_TOKEN}`).toString('base64');
+  return `Basic ${credentials}`;
 }
 
 async function streamToString(stream) {
@@ -78,12 +89,12 @@ async function writeToS3(key, data) {
 // ---------------------------------------------------------------------------
 
 async function getAvailableTransitions(issueKey) {
-  const token = await getJiraToken();
-  const url = `${JIRA_HOST}/rest/api/2/issue/${issueKey}/transitions`;
+  const authHeader = await getJiraAuthHeader();
+  const url = `${JIRA_HOST}/rest/api/3/issue/${issueKey}/transitions`;
 
   const response = await fetch(url, {
     headers: {
-      'Authorization': `Bearer ${token}`,
+      'Authorization': authHeader,
       'Accept': 'application/json'
     }
   });
@@ -106,13 +117,13 @@ async function transitionIssue(issueKey, targetStatus) {
     throw new Error(`No transition to "${targetStatus}" available for ${issueKey}. Available: ${available}`);
   }
 
-  const token = await getJiraToken();
-  const url = `${JIRA_HOST}/rest/api/2/issue/${issueKey}/transitions`;
+  const authHeader = await getJiraAuthHeader();
+  const url = `${JIRA_HOST}/rest/api/3/issue/${issueKey}/transitions`;
 
   const response = await fetch(url, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${token}`,
+      'Authorization': authHeader,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({ transition: { id: transition.id } })
@@ -127,10 +138,10 @@ async function transitionIssue(issueKey, targetStatus) {
 }
 
 async function addComment(issueKey, ruleId, ruleName, commentBody, assigneeUsername) {
-  const token = await getJiraToken();
-  const url = `${JIRA_HOST}/rest/api/2/issue/${issueKey}/comment`;
+  const authHeader = await getJiraAuthHeader();
+  const url = `${JIRA_HOST}/rest/api/3/issue/${issueKey}/comment`;
 
-  const mention = assigneeUsername ? `[~${assigneeUsername}] ` : '';
+  const mention = assigneeUsername ? `[~accountid:${assigneeUsername}] ` : '';
   const formattedComment = [
     `*Hygiene Enforcement — ${ruleName}*`,
     '',
@@ -143,7 +154,7 @@ async function addComment(issueKey, ruleId, ruleName, commentBody, assigneeUsern
   const response = await fetch(url, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${token}`,
+      'Authorization': authHeader,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({ body: formattedComment })

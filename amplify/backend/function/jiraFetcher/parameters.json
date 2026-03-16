@@ -1,6 +1,8 @@
 {
   "CloudWatchRule": "cron(0 * * * ? *)",
-  "jiraHost": "https://issues.redhat.com",
+  "jiraHost": "https://redhat.atlassian.net",
   "s3Bucket": "acorvin-jira-tracker-issues-dev",
-  "firebaseProjectId": "ai-engineering-jira-tracking"
+  "firebaseProjectId": "ai-engineering-jira-tracking",
+  "jiraTokenParameterName": "/jira-tracker-app/dev/jira-token",
+  "jiraEmailParameterName": "/jira-tracker-app/dev/jira-email"
 }

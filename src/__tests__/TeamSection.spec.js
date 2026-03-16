@@ -17,7 +17,7 @@ describe('TeamSection', () => {
       component: 'Training Ray',
       assignee: 'John Doe',
       linkedRfe: { key: 'RHAIRFE-456', title: 'RFE: GPU sharing' },
-      url: 'https://issues.redhat.com/browse/RHOAIENG-123'
+      url: 'https://redhat.atlassian.net/browse/RHOAIENG-123'
     },
     {
       key: 'RHOAIENG-124',
@@ -28,7 +28,7 @@ describe('TeamSection', () => {
       component: 'Training Ray',
       assignee: 'Jane Smith',
       linkedRfe: { key: 'RHAIRFE-457', title: 'RFE: Autoscaling' },
-      url: 'https://issues.redhat.com/browse/RHOAIENG-124'
+      url: 'https://redhat.atlassian.net/browse/RHOAIENG-124'
     },
     {
       key: 'RHOAIENG-125',
@@ -39,7 +39,7 @@ describe('TeamSection', () => {
       component: 'Training Ray',
       assignee: null,
       linkedRfe: { key: 'RHAIRFE-458', title: 'RFE: Metrics' },
-      url: 'https://issues.redhat.com/browse/RHOAIENG-125'
+      url: 'https://redhat.atlassian.net/browse/RHOAIENG-125'
     }
   ]
 

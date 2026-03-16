@@ -35,7 +35,7 @@ describe('IntakeView', () => {
       component: 'Training Ray',
       assignee: 'John Doe',
       linkedRfe: { key: 'RHAIRFE-456', title: 'RFE: GPU sharing' },
-      url: 'https://issues.redhat.com/browse/RHOAIENG-123'
+      url: 'https://redhat.atlassian.net/browse/RHOAIENG-123'
     },
     {
       key: 'RHOAIENG-124',
@@ -46,7 +46,7 @@ describe('IntakeView', () => {
       component: 'Training Ray',
       assignee: 'Jane Smith',
       linkedRfe: { key: 'RHAIRFE-457', title: 'RFE: Autoscaling' },
-      url: 'https://issues.redhat.com/browse/RHOAIENG-124'
+      url: 'https://redhat.atlassian.net/browse/RHOAIENG-124'
     },
     {
       key: 'RHOAIENG-125',
@@ -57,7 +57,7 @@ describe('IntakeView', () => {
       component: 'AI Pipelines',
       assignee: 'Bob Wilson',
       linkedRfe: { key: 'RHAIRFE-458', title: 'RFE: Pipeline' },
-      url: 'https://issues.redhat.com/browse/RHOAIENG-125'
+      url: 'https://redhat.atlassian.net/browse/RHOAIENG-125'
     },
     {
       key: 'RHOAIENG-126',
@@ -68,7 +68,7 @@ describe('IntakeView', () => {
       component: 'Feature Store',
       assignee: null,
       linkedRfe: { key: 'RHAIRFE-459', title: 'RFE: Store' },
-      url: 'https://issues.redhat.com/browse/RHOAIENG-126'
+      url: 'https://redhat.atlassian.net/browse/RHOAIENG-126'
     }
   ]
 
@@ -479,7 +479,7 @@ describe('IntakeView', () => {
           component: 'Training Ray',
           assignee: null,
           linkedRfe: { key: 'RHAIRFE-500', title: 'RFE: Test' },
-          url: 'https://issues.redhat.com/browse/RHOAIENG-200'
+          url: 'https://redhat.atlassian.net/browse/RHOAIENG-200'
         }
       ]
 

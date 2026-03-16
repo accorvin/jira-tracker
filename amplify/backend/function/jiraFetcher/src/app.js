@@ -47,65 +47,88 @@ const ssmClient = new SSMClient({ region: AWS_REGION });
 /**
  * Configuration constants
  */
-const JIRA_HOST = process.env.JIRA_HOST || 'https://issues.redhat.com';
+const JIRA_HOST = process.env.JIRA_HOST || 'https://redhat.atlassian.net';
 const S3_BUCKET = process.env.S3_BUCKET;
-const PLAN_ID = 2423;
+const PLAN_FILTER_ID = 13560;
 
-// Cache for JIRA_TOKEN (fetched from SSM)
+// Cache for Jira credentials (fetched from SSM)
 let JIRA_TOKEN = null;
+let JIRA_EMAIL = null;
 
 /**
- * Fetch JIRA token from SSM Parameter Store
+ * Fetch a parameter from SSM Parameter Store
  */
-async function getJiraToken() {
-  if (JIRA_TOKEN) {
-    return JIRA_TOKEN;
+async function getSSMParameter(parameterName) {
+  const command = new GetParameterCommand({
+    Name: parameterName,
+    WithDecryption: true
+  });
+  const response = await ssmClient.send(command);
+  return response.Parameter.Value;
+}
+
+/**
+ * Get Jira Basic auth header (email:token base64-encoded)
+ */
+async function getJiraAuthHeader() {
+  if (!JIRA_TOKEN) {
+    const tokenParamName = process.env.JIRA_TOKEN_PARAMETER_NAME;
+    if (!tokenParamName) {
+      throw new Error('JIRA_TOKEN_PARAMETER_NAME environment variable is not set');
+    }
+    try {
+      JIRA_TOKEN = await getSSMParameter(tokenParamName);
+      console.log('Successfully fetched Jira token from SSM Parameter Store');
+    } catch (error) {
+      console.error('Error fetching Jira token from SSM:', error);
+      throw new Error(`Failed to fetch Jira token from SSM: ${error.message}`);
+    }
   }
 
-  const parameterName = process.env.JIRA_TOKEN_PARAMETER_NAME;
-  if (!parameterName) {
-    throw new Error('JIRA_TOKEN_PARAMETER_NAME environment variable is not set');
+  if (!JIRA_EMAIL) {
+    const emailParamName = process.env.JIRA_EMAIL_PARAMETER_NAME;
+    if (!emailParamName) {
+      throw new Error('JIRA_EMAIL_PARAMETER_NAME environment variable is not set');
+    }
+    try {
+      JIRA_EMAIL = await getSSMParameter(emailParamName);
+      console.log('Successfully fetched Jira email from SSM Parameter Store');
+    } catch (error) {
+      console.error('Error fetching Jira email from SSM:', error);
+      throw new Error(`Failed to fetch Jira email from SSM: ${error.message}`);
+    }
   }
 
-  try {
-    const command = new GetParameterCommand({
-      Name: parameterName,
-      WithDecryption: true
-    });
-    const response = await ssmClient.send(command);
-    JIRA_TOKEN = response.Parameter.Value;
-    console.log('Successfully fetched Jira token from SSM Parameter Store');
-    return JIRA_TOKEN;
-  } catch (error) {
-    console.error('Error fetching Jira token from SSM:', error);
-    throw new Error(`Failed to fetch Jira token from SSM: ${error.message}`);
-  }
+  const credentials = Buffer.from(`${JIRA_EMAIL}:${JIRA_TOKEN}`).toString('base64');
+  return `Basic ${credentials}`;
 }
 
 /**
  * Fetch issues from Jira with pagination
  */
 async function fetchIssuesFromJira(targetRelease) {
-  const jiraToken = await getJiraToken();
+  const authHeader = await getJiraAuthHeader();
 
   const jql = buildJqlQuery(targetRelease);
   const fields = buildIssueFields();
 
   const issues = [];
-  let startAt = 0;
-  const maxResults = 100;
+  let nextPageToken = null;
+  const maxResults = 50;
 
   while (true) {
-    const url = new URL(`${JIRA_HOST}/rest/api/2/search`);
+    const url = new URL(`${JIRA_HOST}/rest/api/3/search/jql`);
     url.searchParams.set('jql', jql);
-    url.searchParams.set('startAt', startAt.toString());
     url.searchParams.set('maxResults', maxResults.toString());
     url.searchParams.set('fields', fields);
     url.searchParams.set('expand', 'changelog,renderedFields');
+    if (nextPageToken) {
+      url.searchParams.set('nextPageToken', nextPageToken);
+    }
 
     const response = await fetch(url.toString(), {
       headers: {
-        'Authorization': `Bearer ${jiraToken}`,
+        'Authorization': authHeader,
         'Accept': 'application/json'
       }
     });
@@ -116,18 +139,11 @@ async function fetchIssuesFromJira(targetRelease) {
     }
 
     const data = await response.json();
-
-    if (!data.issues || data.issues.length === 0) {
-      break;
-    }
-
+    if (!data.issues || data.issues.length === 0) break;
     issues.push(...data.issues);
-
-    if (data.issues.length < maxResults) {
-      break;
-    }
-
-    startAt += maxResults;
+    if (data.isLast) break;
+    nextPageToken = data.nextPageToken;
+    if (!nextPageToken) break;
   }
 
   return issues;
@@ -143,19 +159,19 @@ async function fetchRfesByKeys(rfeKeys) {
     return {};
   }
 
-  const jiraToken = await getJiraToken();
+  const authHeader = await getJiraAuthHeader();
 
   const jql = buildRfeJql(rfeKeys);
   const fields = buildRfeFields();
 
-  const url = new URL(`${JIRA_HOST}/rest/api/2/search`);
+  const url = new URL(`${JIRA_HOST}/rest/api/3/search/jql`);
   url.searchParams.set('jql', jql);
   url.searchParams.set('maxResults', '100');
   url.searchParams.set('fields', fields);
 
   const response = await fetch(url.toString(), {
     headers: {
-      'Authorization': `Bearer ${jiraToken}`,
+      'Authorization': authHeader,
       'Accept': 'application/json'
     }
   });
@@ -187,24 +203,26 @@ async function fetchRfesByKeys(rfeKeys) {
  * Fetch intake features from Jira with issue links
  */
 async function fetchIntakeFeatures() {
-  const jiraToken = await getJiraToken();
+  const authHeader = await getJiraAuthHeader();
   const jql = buildIntakeFeaturesJqlQuery();
   const fields = buildIntakeFields();
 
   const issues = [];
-  let startAt = 0;
+  let nextPageToken = null;
   const maxResults = 100;
 
   while (true) {
-    const url = new URL(`${JIRA_HOST}/rest/api/2/search`);
+    const url = new URL(`${JIRA_HOST}/rest/api/3/search/jql`);
     url.searchParams.set('jql', jql);
-    url.searchParams.set('startAt', startAt.toString());
     url.searchParams.set('maxResults', maxResults.toString());
     url.searchParams.set('fields', fields);
+    if (nextPageToken) {
+      url.searchParams.set('nextPageToken', nextPageToken);
+    }
 
     const response = await fetch(url.toString(), {
       headers: {
-        'Authorization': `Bearer ${jiraToken}`,
+        'Authorization': authHeader,
         'Accept': 'application/json'
       }
     });
@@ -217,8 +235,9 @@ async function fetchIntakeFeatures() {
     const data = await response.json();
     if (!data.issues || data.issues.length === 0) break;
     issues.push(...data.issues);
-    if (data.issues.length < maxResults) break;
-    startAt += maxResults;
+    if (data.isLast) break;
+    nextPageToken = data.nextPageToken;
+    if (!nextPageToken) break;
   }
 
   return issues;
@@ -318,26 +337,28 @@ async function refreshIntakeFeatures(existingRfeMap) {
  * Skips changelog to reduce payload for ~1000 issues
  */
 async function fetchPlanIssuesFromJira() {
-  const jiraToken = await getJiraToken();
+  const authHeader = await getJiraAuthHeader();
 
   const jql = buildPlanJqlQuery();
   const fields = buildPlanFields();
 
   const issues = [];
-  let startAt = 0;
+  let nextPageToken = null;
   const maxResults = 100;
 
   while (true) {
-    const url = new URL(`${JIRA_HOST}/rest/api/2/search`);
+    const url = new URL(`${JIRA_HOST}/rest/api/3/search/jql`);
     url.searchParams.set('jql', jql);
-    url.searchParams.set('startAt', startAt.toString());
     url.searchParams.set('maxResults', maxResults.toString());
     url.searchParams.set('fields', fields);
     url.searchParams.set('expand', 'renderedFields');
+    if (nextPageToken) {
+      url.searchParams.set('nextPageToken', nextPageToken);
+    }
 
     const response = await fetch(url.toString(), {
       headers: {
-        'Authorization': `Bearer ${jiraToken}`,
+        'Authorization': authHeader,
         'Accept': 'application/json'
       }
     });
@@ -348,18 +369,11 @@ async function fetchPlanIssuesFromJira() {
     }
 
     const data = await response.json();
-
-    if (!data.issues || data.issues.length === 0) {
-      break;
-    }
-
+    if (!data.issues || data.issues.length === 0) break;
     issues.push(...data.issues);
-
-    if (data.issues.length < maxResults) {
-      break;
-    }
-
-    startAt += maxResults;
+    if (data.isLast) break;
+    nextPageToken = data.nextPageToken;
+    if (!nextPageToken) break;
   }
 
   return issues;
@@ -371,7 +385,7 @@ async function fetchPlanIssuesFromJira() {
 async function refreshPlanRankings(existingRfeMap) {
   console.log('Fetching plan rankings...');
   const rawIssues = await fetchPlanIssuesFromJira();
-  console.log(`Found ${rawIssues.length} issues in plan ${PLAN_ID}`);
+  console.log(`Found ${rawIssues.length} issues in plan filter ${PLAN_FILTER_ID}`);
 
   // Use existing RFE map if provided, otherwise fetch
   let rfeMap = existingRfeMap || {};
@@ -392,7 +406,7 @@ async function refreshPlanRankings(existingRfeMap) {
 
   const output = {
     lastUpdated: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
-    planId: PLAN_ID,
+    planFilterId: PLAN_FILTER_ID,
     totalCount: rankedIssues.length,
     issues: rankedIssues
   };
