@@ -150,6 +150,73 @@ async function fetchIssuesFromJira(targetRelease) {
 }
 
 /**
+ * Fetch full changelog for a single issue via the dedicated endpoint (with pagination).
+ * The search API caps changelog at ~40 entries; this endpoint returns all of them.
+ */
+async function fetchFullChangelog(issueKey) {
+  const authHeader = await getJiraAuthHeader();
+  const allHistories = [];
+  let startAt = 0;
+
+  while (true) {
+    const url = new URL(`${JIRA_HOST}/rest/api/3/issue/${issueKey}/changelog`);
+    url.searchParams.set('startAt', startAt.toString());
+    url.searchParams.set('maxResults', '100');
+
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Authorization': authHeader,
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      console.warn(`Failed to fetch full changelog for ${issueKey}: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    const values = data.values || [];
+    allHistories.push(...values);
+
+    if (data.isLast || values.length === 0) break;
+    startAt += values.length;
+  }
+
+  return allHistories;
+}
+
+/**
+ * For issues whose changelog was truncated by the search API,
+ * fetch the complete changelog and replace the truncated data.
+ */
+async function backfillTruncatedChangelogs(issues) {
+  const truncated = issues.filter(issue => {
+    const total = issue.changelog?.total || 0;
+    const returned = (issue.changelog?.histories || []).length;
+    return total > returned;
+  });
+
+  if (truncated.length === 0) return;
+
+  console.log(`Backfilling full changelogs for ${truncated.length} issues with truncated history`);
+
+  const results = await Promise.allSettled(
+    truncated.map(async (issue) => {
+      const fullHistories = await fetchFullChangelog(issue.key);
+      if (fullHistories) {
+        issue.changelog.histories = fullHistories;
+      }
+    })
+  );
+
+  const failed = results.filter(r => r.status === 'rejected').length;
+  if (failed > 0) {
+    console.warn(`Failed to backfill changelog for ${failed} issues`);
+  }
+}
+
+/**
  * Fetch specific RFEs by their keys
  * Only returns RFEs that are in approved or post-approval statuses
  * Returns map of RFE key -> RFE data for quick lookup
@@ -430,6 +497,7 @@ async function refreshAllReleases(releases) {
     console.log(`Fetching issues for ${release.name}...`);
     try {
       const rawIssues = await fetchIssuesFromJira(release.name);
+      await backfillTruncatedChangelogs(rawIssues);
       releaseIssuesMap[release.name] = rawIssues;
       allRawIssues.push(...rawIssues);
       console.log(`Found ${rawIssues.length} issues for ${release.name}`);

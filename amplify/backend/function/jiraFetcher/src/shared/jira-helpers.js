@@ -124,6 +124,8 @@ function getStatusSummaryUpdatedDate(issue) {
     return null;
   }
 
+  // Histories may be in reverse-chronological order (newest first),
+  // so scan all entries and pick the most recent timestamp.
   let mostRecentDate = null;
 
   for (const history of issue.changelog.histories) {
@@ -135,7 +137,9 @@ function getStatusSummaryUpdatedDate(issue) {
         } else if (timestamp.includes('T') && timestamp.length > 19) {
           timestamp = timestamp.substring(0, 19) + 'Z';
         }
-        mostRecentDate = timestamp;
+        if (!mostRecentDate || timestamp > mostRecentDate) {
+          mostRecentDate = timestamp;
+        }
       }
     }
   }
@@ -151,6 +155,8 @@ function getStatusEnteredAtDate(issue) {
     return issue.fields.created;
   }
 
+  // Histories may be in reverse-chronological order (newest first),
+  // so scan all entries and pick the most recent timestamp.
   let mostRecentStatusChange = null;
 
   for (const history of issue.changelog.histories) {
@@ -162,7 +168,9 @@ function getStatusEnteredAtDate(issue) {
         } else if (timestamp.includes('T') && timestamp.length > 19) {
           timestamp = timestamp.substring(0, 19) + 'Z';
         }
-        mostRecentStatusChange = timestamp;
+        if (!mostRecentStatusChange || timestamp > mostRecentStatusChange) {
+          mostRecentStatusChange = timestamp;
+        }
       }
     }
   }
