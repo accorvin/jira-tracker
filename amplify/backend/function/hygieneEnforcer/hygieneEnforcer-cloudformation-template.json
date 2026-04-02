@@ -277,7 +277,8 @@
                 "ssm:GetParameter"
               ],
               "Resource": [
-                "arn:aws:ssm:us-east-1:585132637328:parameter/jira-tracker-app/*/jira-token"
+                "arn:aws:ssm:us-east-1:585132637328:parameter/jira-tracker-app/*/jira-token",
+                "arn:aws:ssm:us-east-1:585132637328:parameter/jira-tracker-app/*/jira-email"
               ],
               "Effect": "Allow"
             }
