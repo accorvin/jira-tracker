@@ -29,14 +29,16 @@
       </svg>
     </button>
 
-    <div v-if="showPopup" ref="popup" class="popup" :style="popupStyle">
-      <h4 class="popup-header">Hygiene Issues ({{ violations.length }})</h4>
-      <ul class="violations-list">
-        <li v-for="violation in violations" :key="violation.id" class="violation-item">
-          {{ violation.message }}
-        </li>
-      </ul>
-    </div>
+    <Teleport to="body">
+      <div v-if="showPopup" ref="popup" class="hygiene-popup" :style="popupStyle">
+        <h4 class="popup-header">Hygiene Issues ({{ violations.length }})</h4>
+        <ul class="violations-list">
+          <li v-for="violation in violations" :key="violation.id" class="violation-item">
+            {{ violation.message }}
+          </li>
+        </ul>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -169,7 +171,7 @@ onBeforeUnmount(() => {
   animation: pulse 1.5s ease-in-out infinite;
 }
 
-.popup {
+:global(.hygiene-popup) {
   position: fixed;
   background: white;
   border: 1px solid #e5e7eb;
@@ -181,7 +183,7 @@ onBeforeUnmount(() => {
   z-index: 50;
 }
 
-.popup-header {
+:global(.hygiene-popup .popup-header) {
   margin: 0 0 0.75rem 0;
   font-size: 0.875rem;
   font-weight: 600;
@@ -190,13 +192,13 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid #e5e7eb;
 }
 
-.violations-list {
+:global(.hygiene-popup .violations-list) {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.violation-item {
+:global(.hygiene-popup .violation-item) {
   padding: 0.5rem;
   margin-bottom: 0.5rem;
   background: #fef2f2;
@@ -207,7 +209,7 @@ onBeforeUnmount(() => {
   color: #374151;
 }
 
-.violation-item:last-child {
+:global(.hygiene-popup .violation-item:last-child) {
   margin-bottom: 0;
 }
 </style>
