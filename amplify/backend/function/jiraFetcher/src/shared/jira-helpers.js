@@ -15,7 +15,7 @@ const CUSTOM_FIELDS = {
   targetRelease: 'customfield_10855',
   statusSummary: 'customfield_10814',
   colorStatus: 'customfield_10712',
-  docsRequired: 'customfield_10756',
+  docsRequired: 'customfield_10665',
   targetEnd: 'customfield_10023',
   // RICE scoring fields
   reach: 'customfield_10862',
