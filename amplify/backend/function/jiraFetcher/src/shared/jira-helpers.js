@@ -19,7 +19,7 @@ const CUSTOM_FIELDS = {
   targetEnd: 'customfield_10023',
   // RICE scoring fields
   reach: 'customfield_10862',
-  impact: 'customfield_10861',
+  impact: 'customfield_10836',
   confidence: 'customfield_10838',
   effort: 'customfield_10637',
   riceScore: 'customfield_10864'
