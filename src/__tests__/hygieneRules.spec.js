@@ -549,7 +549,7 @@ describe('Hygiene Rules Engine', () => {
         status: 'In Progress',
         issueType: 'Feature',
         riceStatus: 'none',
-        targetRelease: ['rhoai-3.5']
+        fixVersions: ['rhoai-3.5']
       }
 
       const violations = evaluateHygiene(issue)
@@ -561,7 +561,7 @@ describe('Hygiene Rules Engine', () => {
         status: 'In Progress',
         issueType: 'Feature',
         riceStatus: 'none',
-        targetRelease: ['rhoai-3.4']
+        fixVersions: ['rhoai-3.4']
       }
 
       const violations = evaluateHygiene(issue)
@@ -573,7 +573,7 @@ describe('Hygiene Rules Engine', () => {
         status: 'In Progress',
         issueType: 'Feature',
         riceStatus: 'none',
-        targetRelease: ['rhoai-3.3']
+        fixVersions: ['rhoai-3.3']
       }
 
       const violations = evaluateHygiene(issue)
@@ -585,7 +585,7 @@ describe('Hygiene Rules Engine', () => {
         status: 'In Progress',
         issueType: 'Feature',
         riceStatus: 'none',
-        targetRelease: ['rhoai-3.4-ea1']
+        fixVersions: ['rhoai-3.4-ea1']
       }
 
       const violations = evaluateHygiene(issue)
@@ -597,7 +597,7 @@ describe('Hygiene Rules Engine', () => {
         status: 'In Progress',
         issueType: 'Feature',
         riceStatus: 'none',
-        targetRelease: ['rhoai-3.2']
+        fixVersions: ['rhoai-3.2']
       }
 
       const violations = evaluateHygiene(issue)
@@ -609,7 +609,7 @@ describe('Hygiene Rules Engine', () => {
         status: 'Review',
         issueType: 'Feature',
         riceStatus: 'none',
-        targetRelease: ['rhoai-3.5']
+        fixVersions: ['rhoai-3.5']
       }
 
       const violations = evaluateHygiene(issue)
@@ -621,7 +621,7 @@ describe('Hygiene Rules Engine', () => {
         status: 'In Progress',
         issueType: 'Feature',
         riceStatus: 'complete',
-        targetRelease: ['rhoai-3.5']
+        fixVersions: ['rhoai-3.5']
       }
 
       const violations = evaluateHygiene(issue)
@@ -633,11 +633,166 @@ describe('Hygiene Rules Engine', () => {
         status: 'Resolved',
         issueType: 'Feature',
         riceStatus: 'none',
-        targetRelease: ['rhoai-3.5']
+        fixVersions: ['rhoai-3.5']
       }
 
       const violations = evaluateHygiene(issue)
       expect(violations.some(v => v.id === 'missing-rice-score')).toBe(false)
+    })
+  })
+
+  describe('Rule: Premature Fix Version', () => {
+    it('should trigger for issue in New status with fixVersions set', () => {
+      const issue = {
+        status: 'New',
+        fixVersions: ['rhoai-3.5']
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'premature-release-target')).toBe(true)
+      expect(violations.find(v => v.id === 'premature-release-target').message).toContain('fix version')
+    })
+
+    it('should not trigger for issue in New status without fixVersions', () => {
+      const issue = {
+        status: 'New',
+        fixVersions: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'premature-release-target')).toBe(false)
+    })
+
+    it('should not trigger for issue in New status with empty fixVersions', () => {
+      const issue = {
+        status: 'New',
+        fixVersions: []
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'premature-release-target')).toBe(false)
+    })
+
+    it('should not trigger for issue in New status with targetRelease but no fixVersions', () => {
+      const issue = {
+        status: 'New',
+        targetRelease: ['rhoai-3.5'],
+        fixVersions: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'premature-release-target')).toBe(false)
+    })
+
+    it('should not trigger for issue in Refinement with fixVersions', () => {
+      const issue = {
+        status: 'Refinement',
+        fixVersions: ['rhoai-3.5']
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'premature-release-target')).toBe(false)
+    })
+  })
+
+  describe('Rule: Missing Fix Version', () => {
+    it('should trigger for Feature in In Progress without fixVersions', () => {
+      const issue = {
+        status: 'In Progress',
+        issueType: 'Feature',
+        fixVersions: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-fix-version')).toBe(true)
+    })
+
+    it('should trigger for Initiative in In Progress without fixVersions', () => {
+      const issue = {
+        status: 'In Progress',
+        issueType: 'Initiative',
+        fixVersions: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-fix-version')).toBe(true)
+    })
+
+    it('should trigger for Feature in In Progress with empty fixVersions', () => {
+      const issue = {
+        status: 'In Progress',
+        issueType: 'Feature',
+        fixVersions: []
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-fix-version')).toBe(true)
+    })
+
+    it('should trigger for Feature in Review without fixVersions', () => {
+      const issue = {
+        status: 'Review',
+        issueType: 'Feature',
+        fixVersions: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-fix-version')).toBe(true)
+    })
+
+    it('should trigger for Feature in Testing without fixVersions', () => {
+      const issue = {
+        status: 'Testing',
+        issueType: 'Feature',
+        fixVersions: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-fix-version')).toBe(true)
+    })
+
+    it('should not trigger for Feature in In Progress with fixVersions', () => {
+      const issue = {
+        status: 'In Progress',
+        issueType: 'Feature',
+        fixVersions: ['rhoai-3.5']
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-fix-version')).toBe(false)
+    })
+
+    it('should not trigger for Feature in Refinement without fixVersions', () => {
+      const issue = {
+        status: 'Refinement',
+        issueType: 'Feature',
+        fixVersions: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-fix-version')).toBe(false)
+    })
+
+    it('should not trigger for Bug in In Progress without fixVersions', () => {
+      const issue = {
+        status: 'In Progress',
+        issueType: 'Bug',
+        fixVersions: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-fix-version')).toBe(false)
+    })
+
+    it('should not trigger for Feature in New status without fixVersions', () => {
+      const issue = {
+        status: 'New',
+        issueType: 'Feature',
+        fixVersions: null
+      }
+
+      const violations = evaluateHygiene(issue)
+      expect(violations.some(v => v.id === 'missing-fix-version')).toBe(false)
     })
   })
 
@@ -656,7 +811,8 @@ describe('Hygiene Rules Engine', () => {
         linkedRfeApproved: true,
         docsRequired: 'Yes',
         targetEnd: '2025-12-31',
-        riceStatus: 'complete'
+        riceStatus: 'complete',
+        fixVersions: ['rhoai-3.5']
       }
 
       const violations = evaluateHygiene(issue)
@@ -677,7 +833,8 @@ describe('Hygiene Rules Engine', () => {
         linkedRfeApproved: true,
         docsRequired: 'Yes',
         targetEnd: '2025-12-31',
-        riceStatus: 'complete'
+        riceStatus: 'complete',
+        fixVersions: ['rhoai-3.5']
       }
 
       const violations = evaluateHygiene(issue)

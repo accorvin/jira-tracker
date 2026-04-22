@@ -275,6 +275,9 @@ function transformIssue(issue, rfeMap = {}) {
     labels: labels,
     releaseType: serializeField(fields[CUSTOM_FIELDS.releaseType]),
     targetRelease: serializeListField(fields[CUSTOM_FIELDS.targetRelease]),
+    fixVersions: fields.fixVersions && Array.isArray(fields.fixVersions)
+      ? fields.fixVersions.map(v => v.name).filter(Boolean)
+      : [],
     statusSummary: statusSummary,
     statusSummaryUpdated: getStatusSummaryUpdatedDate(issue),
     statusEnteredAt: getStatusEnteredAtDate(issue),
@@ -334,7 +337,7 @@ function transformIntakeFeature(issue, rfeMap) {
  */
 function buildIssueFields() {
   return [
-    'key', 'summary', 'issuetype', 'assignee', 'status', 'created', 'issuelinks', 'components', 'labels',
+    'key', 'summary', 'issuetype', 'assignee', 'status', 'created', 'issuelinks', 'components', 'labels', 'fixVersions',
     CUSTOM_FIELDS.team,
     CUSTOM_FIELDS.releaseType,
     CUSTOM_FIELDS.targetRelease,

@@ -1256,7 +1256,8 @@ describe('IssueCard', () => {
         docsRequired: 'Yes',
         linkedRfeApproved: true,
         targetEnd: '2025-12-31',
-        riceStatus: 'complete'
+        riceStatus: 'complete',
+        fixVersions: ['rhoai-3.5']
       }
 
       const wrapper = mount(IssueCard, {

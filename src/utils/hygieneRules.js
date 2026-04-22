@@ -197,18 +197,36 @@ export const hygieneRules = [
   },
   {
     id: 'premature-release-target',
-    name: 'Premature Release Target',
-    description: 'Issues in New status shouldn\'t have a target release yet. Target release should only be set after refinement confirms the scope and effort.',
-    remediation: 'Remove the target release from this issue until it has been through refinement and scope/effort are confirmed.',
+    name: 'Premature Fix Version',
+    description: 'Issues in New status shouldn\'t have a fix version yet. Fix version represents a delivery commitment and should only be set after refinement confirms scope and effort.',
+    remediation: 'Remove the fix version from this issue until it has been through refinement and engineering has committed to delivery.',
     check: (issue) => {
       return issue.status === 'New' &&
-             issue.targetRelease &&
-             issue.targetRelease.length > 0
+             issue.fixVersions &&
+             issue.fixVersions.length > 0
     },
     message: (issue) => {
-      return `This feature is in New status but already has a target release set. Target release should only be set after refinement is complete.`
+      return `This issue is in New status but already has a fix version set. Fix version represents a delivery commitment and should only be set after refinement is complete.`
     }
     // No enforcement — display-only rule
+  },
+  {
+    id: 'missing-fix-version',
+    name: 'Missing Fix Version',
+    description: 'Features and Initiatives In Progress must have a Fix Version set. Fix Version is the single source of truth for delivery commitment.',
+    remediation: 'Open the issue in Jira and set the Fix Version field to the release you are committed to delivering in.',
+    check: (issue) => {
+      if (issue.issueType !== 'Feature' && issue.issueType !== 'Initiative') return false
+      if (!isInProgress(issue)) return false
+      return !issue.fixVersions || issue.fixVersions.length === 0
+    },
+    message: (issue) => {
+      return `This ${issue.issueType.toLowerCase()} is in ${issue.status} but has no fix version set. Set the fix version to indicate delivery commitment.`
+    },
+    enforcement: {
+      type: 'comment-only',
+      commentTemplate: 'This issue is missing a Fix Version. Fix Version is the single source of truth for delivery commitment — please set it to the release you are committed to delivering in.'
+    }
   },
   {
     id: 'missing-docs-required',
@@ -264,8 +282,8 @@ export const hygieneRules = [
       if (isInRefinement(issue)) return true
 
       if (isInProgress(issue)) {
-        const targetRelease = issue.targetRelease && issue.targetRelease[0]
-        if (isGrandfatheredRelease(targetRelease)) return false
+        const fixVersion = issue.fixVersions && issue.fixVersions[0]
+        if (isGrandfatheredRelease(fixVersion)) return false
         return true
       }
 
